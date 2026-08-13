@@ -773,9 +773,11 @@ textarea#rationale{min-height:54px}
 var CLIENT = "CLIENT_VERHOEVEN";
 
 /* pre-filled from data/demo-data.json -> live_verdict */
+var LIVE_VERDICT_TEXT = { question: "Should we onboard a Brussels road-freight company whose utility bill shows a different street number from the registered seat, with an expired director passport and a 40% holding in a group we have previously declined?", rationale: "Declined. The address discrepancy was not a translation artefact — Wetstraat and Rue de la Loi are the same street, but numbers 12 and 120 are half a kilometre apart, and 120 is a serviced mailbox address we have seen used by three other freight companies. Combined with a director ID that lapsed two years before application and a 40% participation reaching a group we declined in 2025 over a shared account, this is a corporate-shell pattern rather than an administrative error. A single stale document is housekeeping. Three that all point the same direction is a structure." };
+window.LIVE_VERDICT_TEXT = LIVE_VERDICT_TEXT;
 var LIVE_VERDICT = {
-  question: "Should we onboard a Brussels road-freight company whose utility bill shows a different street number from the registered seat, with an expired director passport and a 40% holding in a group we have previously declined?",
-  rationale: "Declined. The address discrepancy was not a translation artefact — Wetstraat and Rue de la Loi are the same street, but numbers 12 and 120 are half a kilometre apart, and 120 is a serviced mailbox address we have seen used by three other freight companies. Combined with a director ID that lapsed two years before application and a 40% participation reaching a group we declined in 2025 over a shared account, this is a corporate-shell pattern rather than an administrative error. A single stale document is housekeeping. Three that all point the same direction is a structure.",
+  question: "",
+  rationale: "",
   accountant: "M. Dubois"
 };
 
@@ -1524,8 +1526,11 @@ body.focus .just-written,body.focus .isnew,body.focus [data-new="1"]{
     'font:12px/1.3 ui-monospace,Menlo,monospace;letter-spacing:.06em';
   btn.onclick=function(){
     pasted=true;
-    if(saved.r) ta.value=saved.r;
-    if(qb && saved.q) qb.value=saved.q;
+    var T=window.LIVE_VERDICT_TEXT||{};
+    try{ if(window.LIVE_VERDICT){ LIVE_VERDICT.question=T.question||saved.q;
+         LIVE_VERDICT.rationale=T.rationale||saved.r; } }catch(e){}
+    ta.value=T.rationale||saved.r||'';
+    if(qb) qb.value=T.question||saved.q||'';
     btn.style.display='none';
     ta.scrollTop=0;
   };
