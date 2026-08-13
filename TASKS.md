@@ -23,7 +23,7 @@ that reliably breaks that is two agents editing one file. So:
 | C. Static mockup | `mockup/index.html` | ✅ done — offline, 6 steppable states |
 | D. Follow-up agent (RFI) | `src/rfi.js` | 🟢 **free** |
 | E. Live UI | `public/index.html` (+ `public/*`) | 🟢 **free** |
-| F. Atlas setup + indexes | `atlas/indexes.md` `scripts/check.js` `scripts/reset.js` | 🟡 **claimed — sandbox in progress.** Index JSON is written and verified in `atlas/indexes.md`; follow it top to bottom |
+| F. Atlas setup + indexes | `atlas/indexes.md` `scripts/check.js` `scripts/reset.js` `scripts/indexes.js` | 🟠 **live on Atlas, one rung short.** `cluster0.zxa2wwi` connected, seeded, both indexes READY, app verified `{"ok":true,"store":"mongo"}`. But it is **shared tier / 8.0.29**, so `$rerank` cannot run — retrieval lands on `$rankFusion`. **Needs an M10+ sandbox cluster to finish.** `scripts/{indexes,check,reset}.js` are written and repeatable: seed → indexes → check |
 | G. Judged docs | `README.md` `DEMO.md` | 🟢 **free** |
 | H. Seed | `scripts/seed.js` | ✅ done |
 
