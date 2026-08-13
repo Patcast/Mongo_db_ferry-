@@ -110,7 +110,11 @@ export async function score(store, clientId) {
         contribution: r3(WEIGHTS.precedent * parts.precedent),
         evidence: prec.evidence ?? [],
         query: prec.query ?? null,
-        retrieved_by: prec.retrieved_by ?? (store.mode === "mongo" ? "atlas" : "local tf-idf"),
+        // Never infer "atlas" from store.mode. retrieval.js tags every Atlas rung by name
+        // and leaves rows untagged on exactly one path — atlasSearch exhausting the ladder
+        // and falling through to in-process TF-IDF. So an absent tag means MongoDB was NOT
+        // in the retrieval path, and defaulting it to "atlas" put that claim on screen.
+        retrieved_by: prec.retrieved_by ?? "local tf-idf",
       },
       contradiction: {
         weight: WEIGHTS.contradiction,

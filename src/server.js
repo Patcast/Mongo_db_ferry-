@@ -1,6 +1,9 @@
 // HTTP spine. Deliberately dumb: every route loads state, mutates one collection,
 // re-scores, and returns the whole state object. The UI never has to reconcile
 // anything, and a 60-second demo cannot afford a cache-invalidation bug on stage.
+//
+// The one exception to "dumb" is the score cache below, and it is not an optimisation —
+// without it the demo stops using MongoDB about six seconds in. See the comment there.
 
 import express from "express";
 import { readFile } from "node:fs/promises";
@@ -108,8 +111,52 @@ async function openCase(store, clientId) {
   );
 }
 
+// ---------------------------------------------------------------- score cache
+//
+// score() runs the precedent scorer, which runs one $vectorSearch, which is one Voyage
+// call — autoEmbed embeds at QUERY time, not just at index time. Measured on the sandbox
+// cluster: the 4th back-to-back search returns "Embedding provider rate limit exceeded",
+// after which every Atlas rung throws, retrieval.js catches it and silently returns
+// in-process TF-IDF. Both indexes still read READY. Nothing in the UI changes colour.
+//
+// Reads used to re-score, and the UI polls every 2s: ~30 embeddings a minute against a
+// budget of about 3. So the retrieval path died seconds into any recording and the video
+// narrated "vector search" over TF-IDF. Caching reads is what makes the claim true.
+//
+// Invalidation is total rather than clever, because being wrong here is worse than being
+// slow: every write path in this file goes through rescore(), which overwrites the entry,
+// and the two routes with global reach (a new verdict changes the precedent corpus for
+// every client; reset wipes everything) clear the whole map.
+//
+// Only score() is cached. openCase() is a plain store read with no embedding in it, so it
+// stays live and the RFI panel can never show a stale case.
+
+const scoreCache = new Map(); // clientId -> { result, at }
+
+// Safety valve for the rehearsal loop: `npm run reset` in a second terminal mutates the
+// store behind the server's back, and without an expiry a polling UI would show the old
+// score until someone clicked something. One embedding a minute is affordable; thirty is not.
+const SCORE_TTL_MS = Number(process.env.SCORE_TTL_MS ?? 60000);
+
+function cacheScore(clientId, result) {
+  scoreCache.set(String(clientId), { result, at: Date.now() });
+  return result;
+}
+
+function clearScoreCache(clientId) {
+  if (clientId === undefined) scoreCache.clear();
+  else scoreCache.delete(String(clientId));
+}
+
+async function cachedScore(store, clientId) {
+  const hit = scoreCache.get(String(clientId));
+  if (hit && Date.now() - hit.at < SCORE_TTL_MS) return hit.result;
+  return cacheScore(clientId, await score(store, clientId));
+}
+
 async function rescore(store, clientId) {
   const result = await scoreAndRecord(store, clientId);
+  cacheScore(clientId, result); // every write path lands here — this is the invalidation
   let caseDoc = null;
   if (runFollowUp) {
     try {
@@ -133,7 +180,9 @@ async function buildState(store, clientId, precomputed = null) {
 
   // Reads do NOT record a score_event — otherwise polling the UI would flood the
   // sparkline with duplicate points. Only mutations go through scoreAndRecord.
-  const scoreResult = precomputed?.result ?? (await score(store, clientId));
+  // Reads also do not re-score: they serve the cache, or the poll burns the embedding
+  // budget and retrieval silently degrades to TF-IDF mid-demo.
+  const scoreResult = precomputed?.result ?? (await cachedScore(store, clientId));
   const caseDoc =
     precomputed?.caseDoc !== undefined ? precomputed.caseDoc : await openCase(store, clientId);
 
@@ -269,6 +318,11 @@ export async function createApp(store) {
       });
       console.log(`[VERDICT] ${dec} by ${verdict.accountant} — ${verdict._id}`);
 
+      // A verdict enters the precedent corpus for EVERY client, not just this one, so a
+      // per-client invalidation would leave the others quoting a corpus that no longer
+      // exists. This is the beat the demo turns on — it must not be served from cache.
+      clearScoreCache();
+
       const state = await buildState(store, clientId, await rescore(store, clientId));
       res.json({ ...state, verdict });
     })
@@ -286,6 +340,7 @@ export async function createApp(store) {
     "/api/reset",
     wrap(async (req, res) => {
       await store.wipe();
+      clearScoreCache(); // nothing that was true before the wipe is true after it
       await seedStore(store);
       const clientId = req.body?.client_id ?? (await defaultClientId());
       console.log("[reset] store re-seeded");
