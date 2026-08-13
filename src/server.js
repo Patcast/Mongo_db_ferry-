@@ -123,6 +123,20 @@ async function rescore(store, clientId) {
   return { result, caseDoc };
 }
 
+// Last computed score per client.
+//
+// WHY: precedent retrieval issues a $vectorSearch whose query is auto-embedded by Atlas,
+// which costs a Voyage embedding call. The UI polls /api/state every 2s, so re-scoring on
+// every read burned the embedding quota in minutes and silently dropped retrieval to the
+// TF-IDF rung — i.e. the demo stopped using MongoDB and nothing said so out loud.
+//
+// Reads now serve the last computed score. Only mutations re-score.
+const scoreCache = new Map();
+export function invalidateScoreCache(clientId) {
+  if (clientId === undefined) scoreCache.clear();
+  else scoreCache.delete(String(clientId));
+}
+
 async function buildState(store, clientId, precomputed = null) {
   const client = await store.findOne("clients", (c) => String(c._id) === String(clientId));
   if (!client) throw new Error(`client not found: ${clientId}`);
@@ -133,7 +147,17 @@ async function buildState(store, clientId, precomputed = null) {
 
   // Reads do NOT record a score_event — otherwise polling the UI would flood the
   // sparkline with duplicate points. Only mutations go through scoreAndRecord.
-  const scoreResult = precomputed?.result ?? (await score(store, clientId));
+  const key = String(clientId);
+  let scoreResult;
+  if (precomputed?.result) {
+    scoreResult = precomputed.result; // a mutation just recomputed it
+    scoreCache.set(key, scoreResult);
+  } else if (scoreCache.has(key)) {
+    scoreResult = scoreCache.get(key); // read path — no embedding call
+  } else {
+    scoreResult = await score(store, clientId); // cold start, once
+    scoreCache.set(key, scoreResult);
+  }
   const caseDoc =
     precomputed?.caseDoc !== undefined ? precomputed.caseDoc : await openCase(store, clientId);
 
