@@ -42,11 +42,14 @@ polls it **every 2s**. That is ~30 embeddings/minute against a budget of 3: **At
 retrieval path about six seconds into the recording**, and the video then narrates "vector
 search" over TF-IDF.
 
-- **Lane B** — cache `score()` per client, recompute on mutation only. Reads must not re-score.
-  This is the real fix and it is cheap.
-- **Lane E** — until B lands, poll at 5–10s, or drive off mutation responses instead of polling.
+- **Lane B — ✅ fixed.** `score()` is cached per client and recomputed on mutation only.
+  Measured after: 11 polls → 1 retrieval call; a verdict still moves the score immediately.
+- **Lane E** — polling at 2s is now safe, so build to the brief. Just don't add a second
+  poller that re-scores, and don't call `POST /api/rescore` on a timer.
 - Verify with `npm run check -- --burst` on whatever cluster you record against. Do not assume
   M10 raises the ceiling enough — that is unmeasured.
+- `score.breakdown.precedent.retrieved_by` is now trustworthy: it names the actual rung, and
+  says `local tf-idf` when MongoDB was not in the path. **Do not record while it says that.**
 
 ---
 
