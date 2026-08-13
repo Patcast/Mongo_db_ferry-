@@ -22,7 +22,7 @@ that reliably breaks that is two agents editing one file. So:
 | B. Composite score + API | `src/score.js` `src/server.js` | ✅ done — server boots, full beat sequence verified |
 | C. Static mockup | `mockup/index.html` | ✅ done — offline, 6 steppable states |
 | D. Follow-up agent (RFI) | `src/rfi.js` | ✅ done — opens cases, drafts RFI naming the document and date |
-| E. Live UI | `public/index.html` (+ `public/*`) | 🟢 **free** |
+| E. Live UI | `public/index.html` (+ `public/*`) | ✅ done — wired to the live API |
 | F. Atlas setup + indexes | `atlas/indexes.md` `scripts/check.js` `scripts/reset.js` | 🟡 **claimed — sandbox in progress.** Index JSON is written and verified in `atlas/indexes.md`; follow it top to bottom |
 | G. Judged docs | `README.md` `DEMO.md` | 🟢 **free** |
 | H. Seed | `scripts/seed.js` | ✅ done |

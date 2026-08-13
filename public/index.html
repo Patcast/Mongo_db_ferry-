@@ -1,0 +1,1420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger Memory — Client Onboarding</title>
+<style>
+
+/* ============================================================
+   LEDGER MEMORY — static visual mockup. All data is hardcoded.
+   No backend, no network, no MongoDB. Single file, offline.
+   ============================================================ */
+
+:root{
+  --bg:        #0a0d11;
+  --panel:     #11161c;
+  --panel-2:   #151b23;
+  --panel-3:   #1b222c;
+  --line:      #232c38;
+  --line-soft: #1a212a;
+  --text:      #d9e0e9;
+  --text-2:    #96a2b1;
+  --text-3:    #64707e;
+  --green:     #3ecf8e;
+  --green-d:   #1c7d55;
+  --red:       #ef5350;
+  --red-d:     #a02c2c;
+  --amber:     #e9a33a;
+  --amber-d:   #9d6a12;
+  --blue:      #58a6ff;
+  --violet:    #a78bfa;
+  --paper:     #f4f2ec;
+  --ink:       #171b21;
+
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:var(--sans); font-size:13px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:#0d1116}
+::-webkit-scrollbar-thumb{background:#2a3441}
+::-webkit-scrollbar-thumb:hover{background:#3a4655}
+
+.mono{font-family:var(--mono)}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ---------- app shell ---------- */
+#app{
+  height:100vh; display:grid;
+  grid-template-rows: 46px 176px minmax(0,1fr) 148px;
+}
+
+/* ---------- top chrome ---------- */
+.chrome{
+  display:flex; align-items:center; gap:18px;
+  padding:0 16px; border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#141a21,#0f141a);
+}
+.brand{display:flex; align-items:baseline; gap:9px}
+.brand .mark{
+  font:700 14px/1 var(--mono); letter-spacing:.14em;
+  color:var(--green); text-transform:uppercase;
+}
+.brand .sub{font:400 10.5px/1 var(--mono); color:var(--text-3); letter-spacing:.12em; text-transform:uppercase}
+.chrome .client{display:flex; align-items:center; gap:10px; padding-left:18px; border-left:1px solid var(--line)}
+.chrome .client .nm{font-weight:650; font-size:13.5px}
+.chrome .client .id{font:400 11px/1 var(--mono); color:var(--text-3)}
+.chrome .spacer{flex:1}
+.chrome .ops{display:flex; gap:6px; align-items:center}
+.opbadge{
+  font:500 10px/1 var(--mono); letter-spacing:.04em; color:var(--text-3);
+  border:1px solid var(--line); padding:4px 6px; border-radius:2px; background:#0e1319;
+  transition:color .3s, border-color .3s, background .3s;
+}
+.opbadge.hot{color:var(--green); border-color:#1e5d43; background:#0d1f18}
+.chrome .clock{font:500 11px/1 var(--mono); color:var(--text-3); letter-spacing:.06em}
+
+/* ---------- dials row ---------- */
+.dials{
+  display:grid; grid-template-columns: 1fr 1fr minmax(300px, 1.45fr);
+  border-bottom:1px solid var(--line); background:var(--panel);
+}
+.dial{display:flex; align-items:center; gap:20px; padding:14px 22px; border-right:1px solid var(--line)}
+.gauge{position:relative; width:140px; height:140px; flex:0 0 140px}
+.gauge svg{position:absolute; inset:0; width:140px; height:140px}
+.gauge .track{fill:none; stroke:#1d242e; stroke-width:13; stroke-linecap:butt}
+.gauge .prog{
+  fill:none; stroke-width:13; stroke-linecap:butt;
+  transition:stroke-dashoffset 900ms cubic-bezier(.22,.9,.28,1), stroke 600ms ease;
+}
+.gauge .readout{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; padding-bottom:6px;
+}
+.gauge .num{
+  font-family:var(--mono); font-weight:700; letter-spacing:-.03em;
+  font-size:46px; line-height:.92; font-variant-numeric:tabular-nums;
+  transition:color 500ms ease;
+}
+.gauge .num .pct{font-size:22px; font-weight:600; opacity:.6; margin-left:1px}
+.gauge .band{
+  margin-top:7px; font:700 10px/1 var(--mono); letter-spacing:.18em;
+  padding:3px 7px; border-radius:2px; transition:all 500ms ease;
+}
+.dial-meta{min-width:0; flex:1}
+.dial-title{
+  font:700 12.5px/1 var(--sans); letter-spacing:.19em; text-transform:uppercase;
+  color:var(--text); margin-bottom:3px;
+}
+.dial-desc{font-size:11.5px; color:var(--text-3); margin-bottom:11px}
+.spark-wrap{border-top:1px solid var(--line-soft); padding-top:9px}
+.spark-lbl{
+  display:flex; justify-content:space-between; align-items:baseline;
+  font:500 9.5px/1 var(--mono); letter-spacing:.11em; text-transform:uppercase;
+  color:var(--text-3); margin-bottom:5px;
+}
+.spark{display:block; width:100%; height:34px; overflow:visible}
+.spark .sline{fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
+.spark .sfill{opacity:.13}
+.spark .sdot{stroke:var(--panel); stroke-width:2}
+.spark .sgrid{stroke:#1b222b; stroke-width:1; stroke-dasharray:2 3}
+.delta{font:700 10px/1 var(--mono)}
+
+.beatcell{padding:13px 18px; display:flex; flex-direction:column; gap:8px; min-width:0}
+.beat-top{display:flex; align-items:center; gap:9px}
+.beat-idx{
+  font:700 10px/1 var(--mono); letter-spacing:.14em; color:#0a0d11;
+  background:var(--text-2); padding:4px 6px; border-radius:2px;
+}
+.beat-title{font:650 13px/1.2 var(--sans)}
+.beat-body{font-size:12px; color:var(--text-2); line-height:1.5}
+.beat-body em{color:var(--text); font-style:normal; font-weight:600}
+.composite{
+  margin-top:auto; border-top:1px solid var(--line-soft); padding-top:8px;
+  font:500 10.5px/1.6 var(--mono); color:var(--text-3);
+}
+.composite b{color:var(--text-2); font-weight:600}
+
+/* ---------- main 3-col ---------- */
+.main{display:grid; grid-template-columns: 318px minmax(0,1fr) 404px; min-height:0; border-bottom:1px solid var(--line)}
+.col{min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden}
+.col.left{border-right:1px solid var(--line); background:var(--panel)}
+.col.right{border-left:1px solid var(--line); background:var(--panel)}
+.col.centre{background:#0d1116}
+.colhead{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:9px 13px; border-bottom:1px solid var(--line); background:var(--panel-2);
+  font:700 10.5px/1 var(--mono); letter-spacing:.15em; text-transform:uppercase; color:var(--text-2);
+  flex:0 0 auto;
+}
+.colhead .cnt{color:var(--text-3); font-weight:500; letter-spacing:.06em}
+.colbody{overflow-y:auto; overflow-x:hidden; flex:1; min-height:0}
+
+/* ---------- LEFT ---------- */
+.dropzone{
+  margin:12px; padding:20px 14px; border:1.5px dashed #2e3a48; border-radius:3px;
+  text-align:center; background:#0e1319; transition:all .25s ease; position:relative; overflow:hidden;
+}
+.dropzone.armed{border-color:var(--green-d); background:#0d1a16}
+.dz-icon{font:400 22px/1 var(--mono); color:var(--text-3); margin-bottom:8px}
+.dz-t{font:650 12px/1.3 var(--sans); color:var(--text-2)}
+.dz-s{font:400 10.5px/1.5 var(--mono); color:var(--text-3); margin-top:5px}
+.dz-flash{position:absolute; inset:0; background:var(--green); opacity:0; pointer-events:none}
+.dropzone.hit .dz-flash{animation:dzflash 700ms ease-out}
+@keyframes dzflash{0%{opacity:.22}100%{opacity:0}}
+
+.doclist{padding:0 12px 12px}
+.doc{
+  border:1px solid var(--line); border-left:2px solid var(--line-soft);
+  background:var(--panel-2); padding:9px 10px; margin-bottom:7px; border-radius:2px; display:none;
+}
+.doc.on{display:block; animation:docin 520ms cubic-bezier(.2,.9,.3,1)}
+@keyframes docin{
+  0%{opacity:0; transform:translateY(-9px) scale(.985); background:#17251e}
+  60%{background:#17251e}
+  100%{opacity:1; transform:none; background:var(--panel-2)}
+}
+.doc.st-valid{border-left-color:var(--green-d)}
+.doc.st-expired{border-left-color:var(--red-d)}
+.doc.st-stale{border-left-color:var(--amber-d)}
+.doc.st-conflict{border-left-color:var(--amber-d)}
+.doc-r1{display:flex; align-items:flex-start; justify-content:space-between; gap:8px}
+.doc-fn{font:500 11px/1.35 var(--mono); word-break:break-all; color:var(--text)}
+.chip{
+  flex:0 0 auto; font:700 9px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase;
+  padding:4px 6px; border-radius:2px; border:1px solid;
+}
+.chip.valid{color:var(--green); border-color:#1d5f44; background:#0e1f18}
+.chip.expired{color:var(--red); border-color:#6d2626; background:#211113}
+.chip.stale{color:var(--amber); border-color:#6b4a12; background:#211a0d}
+.chip.conflict{color:var(--amber); border-color:#6b4a12; background:#211a0d}
+.doc-r2{
+  display:flex; justify-content:space-between; gap:8px; margin-top:6px;
+  font:400 10px/1.4 var(--mono); color:var(--text-3);
+}
+.doc-note{
+  margin-top:6px; padding-top:6px; border-top:1px dotted #29323d;
+  font:400 10.5px/1.45 var(--sans); color:var(--text-2);
+}
+.doc-note b{color:var(--amber); font-weight:600}
+.doc-note b.bad{color:var(--red)}
+.doclist .empty{text-align:center; padding:22px 10px; color:var(--text-3); font:400 11px/1.6 var(--mono)}
+
+.case{margin:0 12px 12px; border:1px solid var(--line); border-radius:2px; background:var(--panel-2); display:none}
+.case.on{display:block}
+.case-h{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:7px 10px; background:#1a1508; border-bottom:1px solid #33290f;
+  font:700 9.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--amber);
+}
+.case-h .due{color:var(--text-3); letter-spacing:.06em; font-weight:500}
+.case-b{padding:9px 10px}
+.case-lbl{font:500 9.5px/1 var(--mono); letter-spacing:.13em; text-transform:uppercase; color:var(--text-3); margin-bottom:4px}
+.case-mail{
+  font:400 10.5px/1.55 var(--mono); color:var(--text-2); background:#0d1218;
+  border:1px solid var(--line-soft); border-radius:2px; padding:8px; white-space:pre-wrap;
+  max-height:112px; overflow-y:auto;
+}
+.case-sim{display:flex; gap:6px; margin-top:8px}
+.case-sim input{
+  flex:1; background:#0d1218; border:1px solid var(--line); color:var(--text);
+  font:400 10.5px/1 var(--mono); padding:7px 8px; border-radius:2px; min-width:0;
+}
+.case-sim input::placeholder{color:#4d5763}
+.case-sim button{
+  border:1px solid var(--line); background:var(--panel-3); color:var(--text-2);
+  font:600 9.5px/1 var(--mono); letter-spacing:.09em; text-transform:uppercase; padding:0 9px; border-radius:2px;
+}
+.case-sim button:hover{border-color:#3b4757; color:var(--text)}
+
+/* ---------- CENTRE: government form ---------- */
+.formwrap{padding:14px 16px 20px; display:flex; justify-content:center}
+.paper{
+  width:100%; max-width:760px; background:var(--paper); color:var(--ink);
+  border:1px solid #0a0d11; border-radius:2px;
+  box-shadow:0 0 0 1px #2a323d, 0 14px 40px rgba(0,0,0,.6);
+}
+.paper-top{
+  padding:13px 18px 11px; border-bottom:2px solid #232830;
+  display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+  background:linear-gradient(180deg,#faf8f3,#efece4);
+}
+.pt-l{min-width:0}
+.pt-org{font:700 9px/1.35 var(--sans); letter-spacing:.2em; text-transform:uppercase; color:#5a6470}
+.pt-title{font:700 16.5px/1.2 var(--sans); margin-top:5px; color:#12161b}
+.pt-sub{font:500 10px/1.3 var(--mono); color:#6d7783; margin-top:4px}
+.pt-r{flex:0 0 auto; text-align:right}
+.pt-form{font:700 10px/1.3 var(--mono); letter-spacing:.1em; color:#3b444f}
+.pt-stamp{
+  margin-top:6px; display:inline-block; border:2px solid #b4342f; color:#b4342f;
+  font:800 10px/1 var(--mono); letter-spacing:.13em; padding:5px 8px; border-radius:2px;
+  transform:rotate(-3.5deg); opacity:.85;
+}
+.pt-stamp.ok{border-color:#1c7d55; color:#1c7d55}
+
+.tally{padding:11px 18px; background:#e6e2d8; border-bottom:1px solid #cdc7ba; display:flex; align-items:center; gap:16px}
+.tally-num{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:26px; font-weight:700; color:#171b21; white-space:nowrap}
+.tally-num .big{font-size:34px}
+.tally-num .of{color:#7a8390; font-weight:500}
+.tally-txt{font:600 12px/1.35 var(--sans); color:#3d454f}
+.tally-txt .blk{color:#b4342f; font-weight:750}
+.tally-txt .blk.zero{color:#1c7d55}
+.tally-bar{flex:1; min-width:80px; height:9px; background:#cfcabd; overflow:hidden; display:flex}
+.tally-bar i{display:block; height:100%; transition:width 900ms cubic-bezier(.22,.9,.28,1)}
+.tally-bar i.g{background:#2f8f5f}
+.tally-bar i.a{background:#c9871f}
+
+.paper-body{padding:12px 18px 18px}
+.sect{margin-top:12px}
+.sect:first-child{margin-top:2px}
+.sect-h{display:flex; align-items:center; gap:8px; margin-bottom:7px; border-bottom:1px solid #cdc7ba; padding-bottom:4px}
+.sect-h .ltr{
+  font:700 9.5px/1 var(--mono); color:#fff; background:#3d454f;
+  width:16px; height:16px; display:grid; place-items:center; border-radius:2px;
+}
+.sect-h .nm{font:700 10px/1 var(--sans); letter-spacing:.16em; text-transform:uppercase; color:#3d454f}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.f{grid-column:span 1}
+.f.wide{grid-column:span 2}
+
+.fld{
+  border:1px solid; border-left-width:3px; border-radius:2px; padding:5px 8px 6px;
+  background:#fff; position:relative; transition:background .45s ease, border-color .45s ease;
+}
+.fld .lbl{
+  font:600 8.7px/1.25 var(--sans); letter-spacing:.13em; text-transform:uppercase;
+  color:#6d7783; display:flex; align-items:center; gap:5px;
+}
+.fld .lbl .req{color:#b4342f; font-weight:800}
+.fld .val{font:600 12.5px/1.35 var(--mono); color:var(--ink); margin-top:3px; word-break:break-word}
+.fld .src{font:400 8.7px/1.3 var(--mono); color:#8b939e; margin-top:3px; word-break:break-all}
+.fld .tag{position:absolute; top:5px; right:6px; font:800 8px/1 var(--mono); letter-spacing:.1em; padding:3px 4px; border-radius:2px}
+
+.fld.s-unresolved{border-color:#d9a5a2; border-left-color:#b4342f; background:#fbf0ef}
+.fld.s-unresolved .val{color:#b4342f; letter-spacing:.14em}
+.fld.s-resolved{border-color:#a8ceb8; border-left-color:#2f8f5f; background:#f0f8f2}
+.fld.s-resolved .val{color:#12341f}
+.fld.s-rejected{border-color:#d9a5a2; border-left-color:#b4342f; background:#fbf0ef}
+.fld.s-rejected .val{color:#8a2f2b; text-decoration:line-through; text-decoration-color:#c98b88}
+.fld.s-rejected .tag{background:#b4342f; color:#fff}
+.fld.s-conflict{border-color:#dcbc83; border-left-color:#c9871f; background:#fdf6e7}
+.fld.s-conflict .tag{background:#c9871f; color:#fff}
+
+.conf2{display:grid; grid-template-columns:1fr auto 1fr; gap:7px; align-items:stretch; margin-top:4px}
+.conf2 .side{background:#fff; border:1px solid #e0d8c4; border-radius:2px; padding:5px 7px; min-width:0}
+.conf2 .side .k{font:700 8.2px/1 var(--mono); letter-spacing:.12em; color:#9a7626; text-transform:uppercase}
+.conf2 .side .v{font:650 12px/1.3 var(--mono); color:#5c4310; margin-top:3px; word-break:break-word}
+.conf2 .side .fn{font:400 8.5px/1.3 var(--mono); color:#9a8f75; margin-top:3px; word-break:break-all}
+.conf2 .vs{display:grid; place-items:center; font:800 9px/1 var(--mono); color:#c9871f}
+
+.fld.flip{animation:flip 900ms cubic-bezier(.2,.9,.3,1)}
+@keyframes flip{
+  0%{transform:scale(1); box-shadow:0 0 0 0 rgba(47,143,95,0)}
+  18%{transform:scale(1.028); box-shadow:0 0 0 4px rgba(47,143,95,.28)}
+  100%{transform:scale(1); box-shadow:0 0 0 0 rgba(47,143,95,0)}
+}
+.fld.s-conflict.flip{animation:flipA 900ms cubic-bezier(.2,.9,.3,1)}
+@keyframes flipA{
+  0%{transform:scale(1); box-shadow:0 0 0 0 rgba(201,135,31,0)}
+  18%{transform:scale(1.028); box-shadow:0 0 0 4px rgba(201,135,31,.34)}
+  100%{transform:scale(1); box-shadow:0 0 0 0 rgba(201,135,31,0)}
+}
+.fld.s-rejected.flip{animation:flipR 900ms cubic-bezier(.2,.9,.3,1)}
+@keyframes flipR{
+  0%{transform:scale(1); box-shadow:0 0 0 0 rgba(180,52,47,0)}
+  18%{transform:scale(1.028); box-shadow:0 0 0 4px rgba(180,52,47,.3)}
+  100%{transform:scale(1); box-shadow:0 0 0 0 rgba(180,52,47,0)}
+}
+
+.paper-foot{
+  border-top:1px solid #cdc7ba; margin-top:14px; padding-top:9px;
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  font:400 9px/1.4 var(--mono); color:#8b939e;
+}
+.sigbox{border-bottom:1px solid #9aa2ad; width:150px; height:20px}
+
+/* ---------- RIGHT ---------- */
+.bars{padding:8px 0 4px}
+.bar{border-bottom:1px solid var(--line-soft)}
+.bar-h{display:grid; grid-template-columns:12px 1fr auto; gap:9px; align-items:center; padding:9px 13px 8px; cursor:pointer; transition:background .15s}
+.bar-h:hover{background:var(--panel-2)}
+.bar-caret{font:400 9px/1 var(--mono); color:var(--text-3); transition:transform .22s ease}
+.bar.open .bar-caret{transform:rotate(90deg)}
+.bar-name{display:flex; align-items:baseline; gap:8px; min-width:0}
+.bar-name .n{font:650 12.5px/1 var(--sans); letter-spacing:.03em; text-transform:capitalize}
+.bar-name .w{font:500 9.5px/1 var(--mono); color:var(--text-3)}
+.bar-name .star{color:var(--amber); font-size:10px}
+.bar-num{font:700 17px/1 var(--mono); font-variant-numeric:tabular-nums; transition:color .5s ease}
+.bar-track{height:9px; margin:0 13px 9px; background:#1a212a; overflow:hidden; position:relative}
+.bar-fill{height:100%; width:0; transition:width 950ms cubic-bezier(.22,.9,.28,1), background 500ms ease}
+.bar-ticks{position:absolute; inset:0; pointer-events:none}
+.bar-ticks i{position:absolute; top:0; bottom:0; width:1px; background:#0d1116}
+.bar-meta{display:flex; justify-content:space-between; gap:8px; padding:0 13px 9px; font:400 10px/1.35 var(--mono); color:var(--text-3)}
+.bar-meta .op{color:var(--blue); opacity:.75}
+.bar.fired .bar-h{background:#171208}
+.bar.fired .bar-name .n{color:#fff}
+
+.ev{display:none; padding:0 13px 12px; background:#0d1116; border-top:1px solid var(--line-soft)}
+.bar.open .ev{display:block; animation:evin 300ms ease}
+@keyframes evin{from{opacity:0; transform:translateY(-5px)}to{opacity:1; transform:none}}
+.ev-h{font:600 9.5px/1 var(--mono); letter-spacing:.13em; text-transform:uppercase; color:var(--text-3); padding:10px 0 7px}
+
+.cite{border:1px solid var(--line); border-left:2px solid #2e3a48; background:var(--panel-2); border-radius:2px; padding:8px 9px; margin-bottom:7px}
+.cite.hi{border-left-color:var(--red)}
+.cite.med{border-left-color:var(--amber)}
+.cite.low{border-left-color:var(--green-d)}
+.cite.fresh{border-color:#3d6a52; background:#101d17; animation:freshpulse 2.4s ease-out}
+@keyframes freshpulse{
+  0%{box-shadow:0 0 0 0 rgba(62,207,142,.55); background:#14301f}
+  40%{box-shadow:0 0 0 7px rgba(62,207,142,0)}
+  100%{box-shadow:0 0 0 0 rgba(62,207,142,0); background:#101d17}
+}
+.cite-r1{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px}
+.cite-who{display:flex; align-items:center; gap:7px; min-width:0}
+.cite-who .av{
+  width:19px; height:19px; flex:0 0 19px; border-radius:2px; background:var(--panel-3);
+  display:grid; place-items:center; font:700 8.5px/1 var(--mono); color:var(--text-2); border:1px solid var(--line);
+}
+.cite-who .nm{font:650 11.5px/1 var(--sans)}
+.cite-who .dt{font:400 10px/1 var(--mono); color:var(--text-3)}
+.cite-who .dt.now{color:var(--green); font-weight:600}
+.cite-r1 .rr{display:flex; align-items:center; gap:6px; flex:0 0 auto}
+.dec{font:800 8.5px/1 var(--mono); letter-spacing:.12em; padding:4px 5px; border-radius:2px; border:1px solid}
+.dec.HIGH{color:var(--red); border-color:#6d2626; background:#1e1113}
+.dec.MEDIUM{color:var(--amber); border-color:#6b4a12; background:#1e180d}
+.dec.LOW{color:var(--green); border-color:#1d5f44; background:#0e1f18}
+.rel{font:600 9.5px/1 var(--mono); color:var(--text-3)}
+.cite-q{font:500 10.5px/1.4 var(--sans); color:var(--text-2); margin-bottom:5px}
+.cite-rat{font:400 11px/1.5 var(--sans); color:var(--text); border-left:2px solid #2e3a48; padding-left:8px; font-style:italic}
+.cite.fresh .cite-rat{border-left-color:var(--green); color:#eaf3ec}
+.newtag{font:800 8px/1 var(--mono); letter-spacing:.13em; color:#08120d; background:var(--green); padding:3px 4px; border-radius:2px}
+
+.conflict{border:1px solid #4a3a14; border-radius:2px; background:#15120a; padding:9px; margin-bottom:8px}
+.conflict .cf{font:700 10px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--amber); margin-bottom:7px}
+.cf-pair{display:grid; grid-template-columns:1fr 1fr; gap:7px}
+.cf-side{background:#0e1116; border:1px solid var(--line); border-radius:2px; padding:7px}
+.cf-side .k{font:600 8.5px/1 var(--mono); letter-spacing:.11em; text-transform:uppercase; color:var(--text-3)}
+.cf-side .v{font:650 12px/1.35 var(--mono); color:#f0d9a8; margin-top:4px; word-break:break-word}
+.cf-side .fn{font:400 9px/1.3 var(--mono); color:var(--text-3); margin-top:5px; word-break:break-all}
+.cf-note{margin-top:8px; font:400 10.5px/1.5 var(--sans); color:var(--text-2); border-top:1px dotted #3a3115; padding-top:7px}
+.cf-note b{color:var(--amber); font-weight:600}
+.cf-ok{border-color:#1d4a38; background:#0c1512}
+.cf-ok .cf{color:var(--green)}
+
+.find{
+  display:grid; grid-template-columns:auto 1fr; gap:9px; align-items:start;
+  border:1px solid var(--line); border-radius:2px; background:var(--panel-2); padding:8px 9px; margin-bottom:7px;
+}
+.find .sev{font:800 8px/1 var(--mono); letter-spacing:.1em; padding:4px 5px; border-radius:2px; margin-top:1px}
+.find .sev.hi{background:#3a1517; color:var(--red); border:1px solid #6d2626}
+.find .sev.md{background:#241c0b; color:var(--amber); border:1px solid #6b4a12}
+.find .t{font:600 11.5px/1.35 var(--sans); color:var(--text)}
+.find .d{font:400 10px/1.45 var(--mono); color:var(--text-3); margin-top:3px; word-break:break-all}
+
+.gpath{border:1px solid var(--line); border-radius:2px; background:#0e1116; padding:10px 9px}
+.node{display:grid; grid-template-columns:22px 1fr; gap:9px; align-items:center; padding:6px 7px; border:1px solid var(--line); border-radius:2px; background:var(--panel-2)}
+.node.flag{border-color:#6d2626; background:#1b1013}
+.node.self{border-color:#2b4a6b; background:#0f1720}
+.node .hop{font:700 9px/1 var(--mono); color:var(--text-3); text-align:center; border:1px solid var(--line); border-radius:2px; padding:4px 0}
+.node .nm{font:650 11.5px/1.25 var(--sans)}
+.node .sub{font:400 9.5px/1.3 var(--mono); color:var(--text-3); margin-top:2px; word-break:break-all}
+.edge{margin:0 0 0 10px; padding:3px 0 3px 14px; border-left:2px solid #2e3a48; font:500 9.5px/1.5 var(--mono); color:var(--text-3)}
+.edge b{color:var(--blue); font-weight:600}
+.gp-note{margin-top:9px; padding-top:8px; border-top:1px dotted #29323d; font:400 10.5px/1.5 var(--sans); color:var(--text-2)}
+.gp-note b{color:var(--red); font-weight:600}
+
+.misslist{display:flex; flex-wrap:wrap; gap:5px}
+.miss{font:500 10px/1 var(--mono); border:1px solid #5a2a2a; background:#1c1113; color:#e08b88; padding:5px 6px; border-radius:2px}
+.miss.amb{border-color:#5c4212; background:#1c1709; color:#e0b96e}
+.ev-none{font:400 11px/1.5 var(--mono); color:var(--text-3); padding:4px 0 8px}
+
+/* ---------- BOTTOM ---------- */
+.footer{display:grid; grid-template-columns: 1fr 470px; min-height:0; background:var(--panel)}
+.foot-l{padding:11px 14px; display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line)}
+.foot-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px}
+.foot-title{font:700 10.5px/1 var(--mono); letter-spacing:.15em; text-transform:uppercase; color:var(--text-2)}
+.foot-title .dt{color:var(--violet); letter-spacing:.06em}
+.foot-sub{font:400 10px/1 var(--mono); color:var(--text-3)}
+textarea#rationale{
+  flex:1; min-height:0; resize:none; background:#0d1218; border:1px solid var(--line);
+  color:var(--text); font:400 12px/1.55 var(--sans); padding:9px 10px; border-radius:2px;
+}
+textarea#rationale:focus{outline:none; border-color:#3b4757}
+textarea#rationale::placeholder{color:#4d5763}
+
+.foot-r{padding:11px 14px; display:flex; flex-direction:column; gap:9px; min-width:0}
+.pending{
+  display:none; align-items:center; gap:9px; padding:7px 9px; border-radius:2px;
+  border:1px solid #3d6a52; background:#101d17; animation:pendpulse 2.2s ease-in-out infinite;
+}
+.pending.on{display:flex}
+@keyframes pendpulse{0%,100%{border-color:#2c5140}50%{border-color:#4f9a74}}
+.pending .dot{width:7px; height:7px; border-radius:50%; background:var(--green); flex:0 0 7px}
+.pending .tx{font:600 11px/1.3 var(--sans); color:#bfe6d1}
+.pending .tx small{display:block; font:400 9.5px/1.3 var(--mono); color:#7fae95; margin-top:2px}
+
+.verdicts{display:flex; gap:7px}
+.vbtn{flex:1; border:1px solid var(--line); background:var(--panel-2); border-radius:2px; padding:9px 6px; text-align:center; transition:all .16s ease}
+.vbtn .l{font:800 11px/1 var(--mono); letter-spacing:.12em}
+.vbtn .s{font:400 9px/1 var(--mono); color:var(--text-3); margin-top:4px}
+.vbtn.low .l{color:var(--green)}
+.vbtn.med .l{color:var(--amber)}
+.vbtn.high .l{color:var(--red)}
+.vbtn:hover{background:var(--panel-3); border-color:#3b4757}
+.vbtn.high{border-color:#4a2020}
+.vbtn.high:hover{background:#241214; border-color:var(--red-d)}
+.vbtn.sel{box-shadow:inset 0 0 0 1px currentColor}
+
+.actions{display:flex; gap:8px; margin-top:auto}
+.rescore{
+  flex:1; border:1px solid var(--green-d); background:#0f2018; color:var(--green);
+  font:800 12px/1 var(--mono); letter-spacing:.16em; padding:12px; border-radius:2px;
+  display:flex; align-items:center; justify-content:center; gap:9px; transition:all .18s ease;
+}
+.rescore:hover{background:#143026; border-color:var(--green)}
+.rescore.ready{animation:rsp 1.5s ease-in-out infinite}
+@keyframes rsp{
+  0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0); background:#0f2018}
+  50%{box-shadow:0 0 0 5px rgba(62,207,142,.14); background:#153327}
+}
+.rescore .spin{display:none; width:11px; height:11px; border:2px solid rgba(62,207,142,.25); border-top-color:var(--green); border-radius:50%}
+.rescore.busy .spin{display:block; animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ghost{border:1px solid var(--line); background:var(--panel-2); color:var(--text-3); font:600 10px/1 var(--mono); letter-spacing:.1em; padding:0 12px; border-radius:2px}
+.ghost:hover{color:var(--text); border-color:#3b4757}
+
+/* ---------- demo control bar ---------- */
+.ctl{
+  position:fixed; top:8px; right:12px; z-index:60;
+  display:flex; align-items:center; gap:6px;
+  background:rgba(12,16,21,.94); border:1px solid #2c3644; border-radius:3px;
+  padding:5px 6px; backdrop-filter:blur(6px); box-shadow:0 6px 22px rgba(0,0,0,.55);
+}
+.ctl .lbl{font:700 9px/1 var(--mono); letter-spacing:.15em; text-transform:uppercase; color:var(--text-3); padding:0 4px 0 2px}
+.ctl .nav{border:1px solid var(--line); background:#161d25; color:var(--text-2); font:700 11px/1 var(--mono); width:26px; height:24px; border-radius:2px}
+.ctl .nav:hover:not(:disabled){background:var(--panel-3); color:var(--text)}
+.ctl .nav:disabled{opacity:.3; cursor:not-allowed}
+.ctl .pips{display:flex; gap:3px}
+.pip{width:24px; height:24px; border:1px solid var(--line); background:#161d25; color:var(--text-3); font:700 10.5px/1 var(--mono); border-radius:2px; transition:all .15s}
+.pip:hover{color:var(--text); border-color:#3b4757}
+.pip.on{background:var(--green); color:#08120d; border-color:var(--green)}
+.ctl .kb{font:400 9px/1 var(--mono); color:#49535f; padding:0 3px}
+
+.toast{
+  position:fixed; left:50%; bottom:170px; transform:translate(-50%, 16px);
+  z-index:70; opacity:0; pointer-events:none;
+  background:#0d1a14; border:1px solid #2f7a58; border-left:3px solid var(--green);
+  border-radius:2px; padding:10px 14px; box-shadow:0 10px 34px rgba(0,0,0,.6);
+  transition:opacity .28s ease, transform .28s ease; max-width:660px;
+}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+.toast .t1{font:700 10px/1 var(--mono); letter-spacing:.13em; text-transform:uppercase; color:var(--green)}
+.toast .t2{font:500 12px/1.4 var(--sans); color:#dceee4; margin-top:5px}
+.toast .t2 code{font-family:var(--mono); font-size:11.5px; color:#8fe0b8}
+
+@media (max-width:1500px){
+  .main{grid-template-columns:290px minmax(0,1fr) 372px}
+  .footer{grid-template-columns:1fr 420px}
+}
+
+
+/* ---------- live-UI additions (lane E) ---------- */
+.chip.linked{color:var(--blue); border-color:#274b74; background:#0e1721}
+.doc.st-linked{border-left-color:#274b74}
+.stagelist{display:flex; flex-direction:column; gap:6px; margin:12px 12px 10px}
+.stagebtn{
+  display:grid; grid-template-columns:20px 1fr auto; gap:9px; align-items:center;
+  border:1px solid var(--line); background:var(--panel-2); border-radius:2px;
+  padding:8px 9px; text-align:left; transition:all .16s ease;
+}
+.stagebtn:hover:not(:disabled){background:var(--panel-3); border-color:#3b4757}
+.stagebtn:disabled{opacity:.45; cursor:progress}
+.stagebtn .ix{font:700 9px/1 var(--mono); color:#0a0d11; background:var(--text-2); padding:4px 0; border-radius:2px; text-align:center}
+.stagebtn .ty{font:650 11px/1.2 var(--sans); color:var(--text)}
+.stagebtn .fn{font:400 9.5px/1.3 var(--mono); color:var(--text-3); margin-top:3px; word-break:break-all}
+.stagebtn .go{font:700 9px/1 var(--mono); letter-spacing:.12em; color:var(--green)}
+.stage-none{margin:12px; padding:14px 10px; border:1px dashed #2e3a48; border-radius:3px; text-align:center;
+  font:400 10.5px/1.5 var(--mono); color:var(--text-3); background:#0e1319}
+.newtag{animation:newpulse 1.6s ease-in-out infinite}
+@keyframes newpulse{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,.55)}50%{box-shadow:0 0 0 6px rgba(62,207,142,0)}}
+.cite.fresh{border-color:var(--green); animation:freshloop 2.2s ease-in-out infinite}
+@keyframes freshloop{
+  0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,.0); background:#101d17}
+  50%{box-shadow:0 0 0 6px rgba(62,207,142,.10); background:#14301f}
+}
+.qbox{
+  background:#0d1218; border:1px solid var(--line); color:var(--text-2);
+  font:400 10.5px/1.45 var(--mono); padding:7px 8px; border-radius:2px;
+  max-height:32px; overflow-y:auto; margin-bottom:6px;
+}
+textarea#rationale{min-height:54px}
+.whoin{background:#0d1218; border:1px solid var(--line); color:var(--text);
+  font:500 10px/1 var(--mono); padding:5px 6px; border-radius:2px; width:120px}
+.err{position:fixed; left:12px; bottom:12px; z-index:80; display:none; max-width:520px;
+  background:#1d1012; border:1px solid #6d2626; border-left:3px solid var(--red); border-radius:2px;
+  padding:8px 11px; font:500 11px/1.4 var(--mono); color:#f0b5b3}
+.err.on{display:block}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast">
+  <div class="t1" id="toastT1">verdicts &middot; insertOne</div>
+  <div class="t2" id="toastT2"></div>
+</div>
+<div class="err" id="err"></div>
+
+<div id="app">
+
+  <div class="chrome">
+    <div class="brand">
+      <span class="mark">Ledger Memory</span>
+      <span class="sub">Client Onboarding &middot; KYC/AML</span>
+    </div>
+    <div class="client">
+      <div>
+        <div class="nm" id="clientName">&mdash;</div>
+        <div class="id mono" id="clientId">&mdash;</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="ops" id="ops"></div>
+    <div class="clock mono" id="clock"></div>
+  </div>
+
+  <div class="dials">
+
+    <div class="dial">
+      <div class="gauge">
+        <svg viewBox="0 0 140 140">
+          <path class="track" d="M31.82 108.18 A54 54 0 1 1 108.18 108.18"/>
+          <path class="prog" id="confArc" d="M31.82 108.18 A54 54 0 1 1 108.18 108.18"
+                pathLength="100" stroke="#58a6ff" stroke-dasharray="100" stroke-dashoffset="100"/>
+        </svg>
+        <div class="readout">
+          <div class="num tnum" id="confNum" style="color:#58a6ff">0<span class="pct">%</span></div>
+          <div class="band" id="confBand" style="color:#58a6ff;background:#0f1c2b">WEAK</div>
+        </div>
+      </div>
+      <div class="dial-meta">
+        <div class="dial-title">Confidence</div>
+        <div class="dial-desc">How much we know &mdash; required-field coverage</div>
+        <div class="spark-wrap">
+          <div class="spark-lbl">
+            <span>score_events &middot; session</span>
+            <span class="delta mono" id="confDelta" style="color:#58a6ff">&mdash;</span>
+          </div>
+          <svg class="spark" id="confSpark" viewBox="0 0 240 34" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="dial">
+      <div class="gauge">
+        <svg viewBox="0 0 140 140">
+          <path class="track" d="M31.82 108.18 A54 54 0 1 1 108.18 108.18"/>
+          <path class="prog" id="riskArc" d="M31.82 108.18 A54 54 0 1 1 108.18 108.18"
+                pathLength="100" stroke="#64707e" stroke-dasharray="100" stroke-dashoffset="100"/>
+        </svg>
+        <div class="readout">
+          <div class="num tnum" id="riskNum" style="color:#64707e">&mdash;</div>
+          <div class="band" id="riskBand" style="color:#64707e;background:#171d24">UNKNOWN</div>
+        </div>
+      </div>
+      <div class="dial-meta">
+        <div class="dial-title">Risk</div>
+        <div class="dial-desc">How bad it looks &mdash; unknown until documents arrive</div>
+        <div class="spark-wrap">
+          <div class="spark-lbl">
+            <span>score_events &middot; session</span>
+            <span class="delta mono" id="riskDelta" style="color:#64707e">&mdash;</span>
+          </div>
+          <svg class="spark" id="riskSpark" viewBox="0 0 240 34" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="beatcell">
+      <div class="beat-top">
+        <span class="beat-idx" id="beatIdx">STAGE 0</span>
+        <span class="beat-title" id="beatTitle">Empty file</span>
+      </div>
+      <div class="beat-body" id="beatBody"></div>
+      <div class="composite" id="composite"></div>
+    </div>
+
+  </div>
+
+  <div class="main">
+
+    <div class="col left">
+      <div class="colhead"><span>Documents</span><span class="cnt" id="docCount">0 files</span></div>
+      <div class="colbody">
+        <div class="stagelist" id="stagelist"></div>
+        <div class="doclist" id="doclist"></div>
+        <div class="case" id="case">
+          <div class="case-h">
+            <span>Case open &middot; follow-up agent</span>
+            <span class="due" id="caseDue"></span>
+          </div>
+          <div class="case-b">
+            <div class="case-lbl">Awaiting</div>
+            <div class="case-mail" id="caseAwait" style="margin-bottom:9px"></div>
+            <div class="case-lbl">Drafted RFI &mdash; not sent</div>
+            <div class="case-mail" id="caseMail" style="max-height:230px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col centre">
+      <div class="colhead">
+        <span>Government filing preview</span>
+        <span class="cnt">FOD Financi&euml;n / SPF Finances &middot; draft</span>
+      </div>
+      <div class="colbody">
+        <div class="formwrap">
+          <div class="paper">
+            <div class="paper-top">
+              <div class="pt-l">
+                <div class="pt-org">Koninkrijk Belgi&euml; &middot; Royaume de Belgique &mdash; FOD Financi&euml;n / SPF Finances</div>
+                <div class="pt-title">Client Identification &amp; UBO Declaration</div>
+                <div class="pt-sub">AML Directive (EU) 2015/849 &middot; Art. 26 &middot; Wet 18.09.2017</div>
+              </div>
+              <div class="pt-r">
+                <div class="pt-form">FORM KYC&#8209;231/BE</div>
+                <div class="pt-form" style="color:#6d7783;font-weight:500;margin-top:3px">rev. 2026.02</div>
+                <div class="pt-stamp" id="stamp">NOT SUBMITTABLE</div>
+              </div>
+            </div>
+
+            <div class="tally">
+              <div class="tally-num">
+                <span class="big tnum" id="tallyN">0</span><span class="of"> of <span id="tallyT">23</span></span>
+              </div>
+              <div class="tally-txt">
+                fields resolved &mdash;
+                <span class="blk tnum" id="tallyK">23</span> blocking submission
+                <div style="font:400 10.5px/1.4 var(--mono);color:#7a8390;margin-top:3px" id="tallySub"></div>
+              </div>
+              <div class="tally-bar">
+                <i class="g" id="tallyBarG" style="width:0%"></i>
+                <i class="a" id="tallyBarA" style="width:0%"></i>
+              </div>
+            </div>
+
+            <div class="paper-body" id="formBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col right">
+      <div class="colhead">
+        <span>Risk breakdown</span>
+        <span class="cnt" id="evCount">evidence &middot; 0 items</span>
+      </div>
+      <div class="colbody">
+        <div class="bars" id="bars"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div class="foot-l">
+      <div class="foot-head">
+        <span class="foot-title">Record verdict &rarr; <span class="dt">verdicts.decision_type = "kyc_risk"</span></span>
+        <span class="foot-sub">accountant <input class="whoin mono" id="who" value="M. Dubois" spellcheck="false"> &middot; auto-embedded on rationale</span>
+      </div>
+      <div class="qbox mono" id="qbox"></div>
+      <textarea id="rationale" spellcheck="false" placeholder="Rationale — this prose is what future retrievals match on."></textarea>
+    </div>
+    <div class="foot-r">
+      <div class="pending" id="pending">
+        <span class="dot"></span>
+        <span class="tx" id="pendTx">1 new verdict in memory since last score
+          <small id="pendSub">press Re-score to apply</small></span>
+      </div>
+      <div class="verdicts">
+        <button class="vbtn low" data-dec="LOW"><div class="l">LOW</div><div class="s">standard DD</div></button>
+        <button class="vbtn med" data-dec="MEDIUM"><div class="l">MEDIUM</div><div class="s">enhanced DD</div></button>
+        <button class="vbtn high" data-dec="HIGH"><div class="l">HIGH RISK</div><div class="s">escalate + EDD</div></button>
+      </div>
+      <div class="actions">
+        <button class="rescore" id="rescore"><span class="spin"></span><span>RE&#8209;SCORE</span></button>
+        <button class="ghost" id="resetBtn">RESET</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   Ledger Memory — live UI. Every number on this page comes from
+   GET /api/state/<client>. Nothing here is hardcoded except the
+   pre-filled verdict text (copied from data/demo-data.json
+   live_verdict) and the government form's section labels.
+   ============================================================ */
+
+var CLIENT = "CLIENT_VERHOEVEN";
+
+/* pre-filled from data/demo-data.json -> live_verdict */
+var LIVE_VERDICT = {
+  question: "Should we onboard a Brussels road-freight company whose utility bill shows a different street number from the registered seat, with an expired director passport and a 40% holding in a group we have previously declined?",
+  rationale: "Declined. The address discrepancy was not a translation artefact — Wetstraat and Rue de la Loi are the same street, but numbers 12 and 120 are half a kilometre apart, and 120 is a serviced mailbox address we have seen used by three other freight companies. Combined with a director ID that lapsed two years before application and a 40% participation reaching a group we declined in 2025 over a shared account, this is a corporate-shell pattern rather than an administrative error. A single stale document is housekeeping. Three that all point the same direction is a structure.",
+  accountant: "M. Dubois"
+};
+
+/* government form layout — labels and grouping only; states come from the API */
+var SECTIONS = [
+  { ltr:"A", name:"Entity identification", fields:[
+    ["legal_name","Legal name",1,"wide"],
+    ["trading_name","Trading name",0,""],
+    ["company_number","Enterprise no. (KBO/BCE)",1,""],
+    ["vat_number","VAT number",1,""],
+    ["legal_form","Legal form",1,""],
+    ["incorporation_date","Date of incorporation",1,""],
+    ["registered_address","Registered seat (address)",1,"wide"],
+    ["operating_address","Operating address",1,"wide"]
+  ]},
+  { ltr:"B", name:"Activity, jurisdiction & funds", fields:[
+    ["country","Country of establishment",1,""],
+    ["sector_code","NACE-BEL activity code",1,""],
+    ["tax_residency","Tax residency",1,""],
+    ["expected_turnover","Expected annual turnover (EUR)",1,""],
+    ["source_of_funds","Source of funds statement",1,"wide"]
+  ]},
+  { ltr:"C", name:"Authorised representative", fields:[
+    ["id_document","Identity document",1,"wide"],
+    ["id_expiry","Identity document expiry",1,""],
+    ["proof_of_address","Proof of address",1,""],
+    ["politically_exposed","Politically exposed person (PEP)",1,"wide"]
+  ]},
+  { ltr:"D", name:"Ownership & control", fields:[
+    ["ubo_declaration","UBO register declaration",1,""],
+    ["ubo_names","Ultimate beneficial owner(s)",1,""],
+    ["ownership_structure","Control structure / chain",1,"wide"]
+  ]},
+  { ltr:"E", name:"Financial", fields:[
+    ["bank_account_iban","Primary IBAN",1,""],
+    ["financial_statements","Latest annual accounts",1,""],
+    ["financial_year","Financial year",1,"wide"]
+  ]}
+];
+var LABEL = {}, ORDER = [];
+SECTIONS.forEach(function(s){ s.fields.forEach(function(f){ LABEL[f[0]] = f[1]; ORDER.push(f[0]); }); });
+
+var COMPS = [
+  { k:"precedent",     w:"0.35", star:true,  op:"$rankFusion → $rerank" },
+  { k:"contradiction", w:"0.30", star:true,  op:"normalise + $vectorSearch" },
+  { k:"integrity",     w:"0.20", star:false, op:"deterministic — expiry / staleness" },
+  { k:"graph",         w:"0.15", star:false, op:"$graphLookup maxDepth 3" }
+];
+
+var BANDC  = { LOW:"#3ecf8e", MEDIUM:"#e9a33a", HIGH:"#ef5350", UNKNOWN:"#64707e",
+               WEAK:"#58a6ff", PARTIAL:"#58a6ff", SUFFICIENT:"#3ecf8e" };
+var BANDBG = { LOW:"#0e1f18", MEDIUM:"#211a0d", HIGH:"#211113", UNKNOWN:"#171d24",
+               WEAK:"#0f1c2b", PARTIAL:"#0f1c2b", SUFFICIENT:"#0e1f18" };
+
+function $(id){ return document.getElementById(id); }
+function esc(s){
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function initials(n){
+  var p = String(n || "?").trim().split(/\s+/);
+  if (p.length === 1) return p[0].slice(0,2).toUpperCase();
+  return (p[0][0] + p[p.length-1][0]).toUpperCase();
+}
+
+/* ---------------------------------------------------------------- state */
+var state = null;      // last applied server state
+var held = false;      // true between "write verdict" and "re-score": UI holds its numbers
+var busy = false;      // a mutation is in flight
+var hist = [];         // session sparkline points
+var openBars = { precedent:true };
+var shownConf = 0, shownRisk = null;
+var sigs = {};
+
+/* ---------------------------------------------------------------- dials */
+function tween(el, from, to, ms, fmt){
+  var t0 = performance.now();
+  from = (from === null || from === undefined) ? to : from;
+  function step(now){
+    var p = Math.min(1, (now - t0) / ms);
+    var e = 1 - Math.pow(1 - p, 3);
+    el.innerHTML = fmt(from + (to - from) * e);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function setDials(sc, docCount){
+  /* --- confidence --- */
+  var c = Number(sc.confidence || 0);
+  var cb = sc.confidence_level || "WEAK";
+  var cCol = BANDC[cb] || "#58a6ff";
+  if (Math.abs(c - shownConf) > 0.0005 || $("confNum").dataset.init !== "1"){
+    tween($("confNum"), shownConf * 100, c * 100, 900, function(v){
+      return Math.round(v) + '<span class="pct">%</span>';
+    });
+    $("confNum").dataset.init = "1";
+    shownConf = c;
+  }
+  $("confArc").setAttribute("stroke-dashoffset", String(100 - Math.round(c * 100)));
+  $("confArc").setAttribute("stroke", cCol);
+  $("confNum").style.color = cCol;
+  var cbEl = $("confBand");
+  cbEl.textContent = cb; cbEl.style.color = cCol; cbEl.style.background = BANDBG[cb] || "#0f1c2b";
+
+  /* --- risk: unknown, not zero, while the file is empty --- */
+  var unknown = !docCount;
+  var r = unknown ? null : Number(sc.risk || 0);
+  var rb = unknown ? "UNKNOWN" : (sc.risk_level || "LOW");
+  var rCol = BANDC[rb] || "#64707e";
+  if (unknown){
+    $("riskNum").innerHTML = "&mdash;";
+    $("riskArc").setAttribute("stroke-dashoffset", "100");
+    shownRisk = null;
+  } else {
+    if (shownRisk === null || Math.abs(r - shownRisk) > 0.0005){
+      tween($("riskNum"), shownRisk === null ? 0 : shownRisk, r, 900, function(v){
+        return v.toFixed(2);
+      });
+      shownRisk = r;
+    }
+    $("riskArc").setAttribute("stroke-dashoffset", String(100 - Math.round(r * 100)));
+  }
+  $("riskArc").setAttribute("stroke", rCol);
+  $("riskNum").style.color = rCol;
+  var rbEl = $("riskBand");
+  rbEl.textContent = rb; rbEl.style.color = rCol; rbEl.style.background = BANDBG[rb] || "#171d24";
+
+  /* --- history + sparklines --- */
+  var last = hist[hist.length - 1];
+  if (!last || last.c !== c || last.r !== r){
+    hist.push({ c:c, r:unknown ? null : r });
+    if (hist.length > 40) hist.shift();
+  }
+  spark("confSpark", hist.map(function(h){ return h.c; }), cCol);
+  spark("riskSpark", hist.map(function(h){ return h.r; }), rCol);
+  delta("confDelta", hist.map(function(h){ return h.c; }), cCol, 0);
+  delta("riskDelta", hist.map(function(h){ return h.r; }), rCol, 2);
+}
+
+function delta(id, arr, col, dp){
+  var v = arr.filter(function(x){ return x !== null && x !== undefined; });
+  var el = $(id);
+  el.style.color = col;
+  if (v.length < 2){ el.innerHTML = "&mdash;"; return; }
+  var d = v[v.length-1] - v[0];
+  el.textContent = (d >= 0 ? "+" : "−") + Math.abs(dp ? d : d * 100).toFixed(dp) + (dp ? "" : "%") + " session";
+}
+
+function spark(id, arr, col){
+  var svg = $(id), W = 240, H = 34;
+  var pts = [];
+  for (var i = 0; i < arr.length; i++){
+    if (arr[i] === null || arr[i] === undefined) continue;
+    var x = arr.length === 1 ? W : (i / Math.max(1, arr.length - 1)) * W;
+    pts.push([x, H - 2 - Math.max(0, Math.min(1, arr[i])) * (H - 5)]);
+  }
+  if (!pts.length){ svg.innerHTML = '<line class="sgrid" x1="0" y1="17" x2="240" y2="17"/>'; return; }
+  var d = pts.map(function(p, i){ return (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" ");
+  var fill = d + " L" + pts[pts.length-1][0].toFixed(1) + " " + H + " L" + pts[0][0].toFixed(1) + " " + H + " Z";
+  svg.innerHTML =
+    '<line class="sgrid" x1="0" y1="17" x2="240" y2="17"/>' +
+    '<path class="sfill" d="' + fill + '" fill="' + col + '"/>' +
+    '<path class="sline" d="' + d + '" stroke="' + col + '"/>' +
+    '<circle class="sdot" cx="' + pts[pts.length-1][0].toFixed(1) + '" cy="' + pts[pts.length-1][1].toFixed(1) + '" r="3" fill="' + col + '"/>';
+}
+
+/* ---------------------------------------------------------------- form */
+function findConflictPair(st, field){
+  var ev = ((st.score.breakdown.contradiction || {}).evidence) || [];
+  for (var i = 0; i < ev.length; i++){
+    var vals = ev[i].values || [];
+    for (var j = 0; j < vals.length; j++){
+      if (String(vals[j].value) === String(field.value)) return ev[i];
+    }
+  }
+  /* fall back to any contradiction whose label matches the field name loosely */
+  for (var k = 0; k < ev.length; k++){
+    if (field.name.indexOf(String(ev[k].label || "").toLowerCase()) >= 0) return ev[k];
+  }
+  return null;
+}
+
+function sourceOf(st, field){
+  if (!field.value) return "";
+  var docs = st.documents || [];
+  for (var i = 0; i < docs.length; i++){
+    var ex = docs[i].extracted || {};
+    if (ex[field.name] !== undefined && String(ex[field.name]) === String(field.value)){
+      return docs[i].filename;
+    }
+  }
+  return "";
+}
+
+function renderForm(st){
+  var cp = st.score.completeness || { fields:[], resolved:0, total:0, blocking:0 };
+  var byName = {};
+  (cp.fields || []).forEach(function(f){ byName[f.name] = f; });
+
+  var conflicting = (cp.fields || []).filter(function(f){ return f.state === "conflicting"; }).length;
+  var unresolved  = (cp.fields || []).filter(function(f){ return f.state === "unresolved"; }).length;
+
+  $("tallyN").textContent = cp.resolved;
+  $("tallyT").textContent = cp.total;
+  $("tallyK").textContent = cp.blocking;
+  $("tallyK").className = "blk tnum" + (cp.blocking === 0 ? " zero" : "");
+  $("tallySub").textContent = unresolved + " unresolved · " + conflicting +
+    " conflicting · coverage " + Math.round((cp.score || 0) * 100) + "%";
+  $("tallyBarG").style.width = ((cp.resolved / (cp.total || 1)) * 100).toFixed(1) + "%";
+  $("tallyBarA").style.width = ((conflicting / (cp.total || 1)) * 100).toFixed(1) + "%";
+  var stamp = $("stamp");
+  stamp.textContent = cp.blocking === 0 ? "READY TO SUBMIT" : "NOT SUBMITTABLE";
+  stamp.className = "pt-stamp" + (cp.blocking === 0 ? " ok" : "");
+
+  var sig = JSON.stringify(cp.fields);
+  if (sigs.form === sig) return;
+  var firstPaint = sigs.form === undefined;
+  var prevStates = {};
+  if (!firstPaint){
+    try { JSON.parse(sigs.form).forEach(function(f){ prevStates[f.name] = f.state + "|" + f.value; }); } catch(e){}
+  }
+  sigs.form = sig;
+
+  var html = "";
+  SECTIONS.forEach(function(sec){
+    html += '<div class="sect"><div class="sect-h"><span class="ltr">' + sec.ltr +
+            '</span><span class="nm">' + esc(sec.name) + '</span></div><div class="grid2">';
+    sec.fields.forEach(function(fd){
+      var name = fd[0], label = fd[1], req = fd[2], wide = fd[3];
+      var f = byName[name] || { name:name, state:"unresolved", value:null };
+      var cls = f.state === "resolved" ? "s-resolved" : (f.state === "conflicting" ? "s-conflict" : "s-unresolved");
+      var flip = (!firstPaint && prevStates[name] !== undefined &&
+                  prevStates[name] !== f.state + "|" + f.value) ? " flip" : "";
+      html += '<div class="f ' + (wide ? "wide" : "") + '">';
+      html += '<div class="fld ' + cls + flip + '">';
+      html += '<div class="lbl">' + esc(label) + (req ? ' <span class="req">*</span>' : '') + '</div>';
+      if (f.state === "conflicting"){
+        html += '<div class="tag">CONFLICT</div>';
+        var pair = findConflictPair(st, f);
+        if (pair && (pair.values || []).length >= 2){
+          html += '<div class="conf2">';
+          html += '<div class="side"><div class="k">' + esc(pair.values[0].doc_type || "source A") + '</div>' +
+                  '<div class="v">' + esc(pair.values[0].value) + '</div>' +
+                  '<div class="fn">' + esc(pair.values[0].filename) + '</div></div>';
+          html += '<div class="vs">VS</div>';
+          html += '<div class="side"><div class="k">' + esc(pair.values[1].doc_type || "source B") + '</div>' +
+                  '<div class="v">' + esc(pair.values[1].value) + '</div>' +
+                  '<div class="fn">' + esc(pair.values[1].filename) + '</div></div>';
+          html += '</div>';
+          if (pair.why) html += '<div class="src">' + esc(pair.why) + '</div>';
+        } else {
+          html += '<div class="val">' + esc(f.value) + '</div>';
+          html += '<div class="src">conflicting evidence across documents</div>';
+        }
+      } else if (f.state === "resolved"){
+        html += '<div class="val">' + esc(f.value) + '</div>';
+        var src = sourceOf(st, f);
+        if (src) html += '<div class="src">' + esc(src) + '</div>';
+      } else {
+        html += '<div class="val">NOT PROVIDED</div>';
+      }
+      html += '</div></div>';
+    });
+    html += '</div></div>';
+  });
+  html += '<div class="paper-foot"><span>Signature of authorised representative</span>' +
+          '<span class="sigbox"></span><span>Date</span><span class="sigbox" style="width:90px"></span></div>';
+  $("formBody").innerHTML = html;
+}
+
+/* ---------------------------------------------------------------- documents */
+var CHIP = { expired:"expired", stale:"stale", address_conflict:"conflict", graph_link:"linked" };
+var CHIPTXT = { expired:"EXPIRED", stale:"STALE", address_conflict:"CONFLICTING", graph_link:"LINKED" };
+
+function docNote(st, d){
+  var out = [];
+  var ints = ((st.score.breakdown.integrity || {}).evidence) || [];
+  ints.forEach(function(e){
+    if (e.ref === d._id) out.push('<b class="bad">' + esc(e.label) + '</b> &mdash; ' + esc(e.detail));
+  });
+  var cons = ((st.score.breakdown.contradiction || {}).evidence) || [];
+  cons.forEach(function(e){
+    (e.values || []).forEach(function(v){
+      if (v.filename === d.filename) out.push('<b>' + esc(e.label) + ' conflict</b> &mdash; ' + esc(e.why));
+    });
+  });
+  return out.slice(0, 2).join("<br>");
+}
+
+function renderDocs(st){
+  var docs = st.documents || [], staged = st.staged || [];
+  $("docCount").textContent = docs.length + " file" + (docs.length === 1 ? "" : "s") +
+    (staged.length ? " · " + staged.length + " staged" : "");
+
+  var ssig = JSON.stringify(staged.map(function(s){ return s._id; })) + "|" + busy;
+  if (sigs.staged !== ssig){
+    sigs.staged = ssig;
+    var sh = "";
+    if (!staged.length){
+      sh = '<div class="stage-none">All demo documents delivered.<br>documents collection is complete.</div>';
+    } else {
+      staged.forEach(function(s, i){
+        sh += '<button class="stagebtn" data-doc="' + esc(s._id) + '">' +
+              '<span class="ix">' + (i + 1) + '</span>' +
+              '<span><span class="ty">' + esc(String(s.type || "").replace(/_/g, " ")) + '</span>' +
+              '<span class="fn">' + esc(s.filename) + '</span></span>' +
+              '<span class="go">DROP &#8681;</span></button>';
+      });
+    }
+    $("stagelist").innerHTML = sh;
+  }
+
+  var dsig = JSON.stringify(docs.map(function(d){ return d._id; })) + "|" + sigs.form;
+  if (sigs.docs === dsig) return;
+  sigs.docs = dsig;
+  var h = "";
+  if (!docs.length){
+    h = '<div class="empty">no documents—risk is unknown,<br>not low.</div>';
+  }
+  docs.forEach(function(d){
+    var chip = CHIP[d.defect] || "valid";
+    var txt = CHIPTXT[d.defect] || "VALID";
+    var note = docNote(st, d);
+    h += '<div class="doc on st-' + chip + '">';
+    h += '<div class="doc-r1"><span class="doc-fn">' + esc(d.filename) + '</span>' +
+         '<span class="chip ' + chip + '">' + txt + '</span></div>';
+    h += '<div class="doc-r2"><span>' + esc(String(d.type || "").replace(/_/g, " ")) + '</span>' +
+         '<span>' + esc((d.uploaded_at || "").slice(11, 19)) + '</span></div>';
+    if (note) h += '<div class="doc-note">' + note + '</div>';
+    h += '</div>';
+  });
+  $("doclist").innerHTML = h;
+}
+
+/* ---------------------------------------------------------------- case */
+function renderCase(st){
+  var c = st["case"];
+  var el = $("case");
+  if (!c){ el.className = "case"; sigs.cs = null; return; }
+  el.className = "case on";
+  var sig = JSON.stringify(c);
+  if (sigs.cs === sig) return;
+  sigs.cs = sig;
+  $("caseDue").textContent = c.due ? ("due " + new Date(c.due).toUTCString().slice(5, 11)) : "";
+  $("caseAwait").textContent = (c.awaiting || "") + (c.reason ? " — " + c.reason : "");
+  $("caseMail").textContent = c.draft || "(no draft)";
+}
+
+/* ---------------------------------------------------------------- bars */
+function sevCol(v){ return v >= 0.7 ? "#ef5350" : (v >= 0.35 ? "#e9a33a" : "#3ecf8e"); }
+
+function evPrecedent(ev){
+  if (!ev.length) return '<div class="ev-none">No comparable verdict in memory yet.</div>';
+  return ev.map(function(e){
+    var fresh = e.just_written ? " fresh" : "";
+    var dcl = e.decision === "HIGH" ? "hi" : (e.decision === "MEDIUM" ? "med" : "low");
+    return '<div class="cite ' + dcl + fresh + '">' +
+      '<div class="cite-r1"><div class="cite-who">' +
+        '<span class="av">' + esc(initials(e.accountant)) + '</span>' +
+        '<span class="nm">' + esc(e.accountant) + '</span>' +
+        '<span class="dt' + (e.just_written ? " now" : "") + '">' + esc(e.date) + '</span>' +
+        (e.just_written ? '<span class="newtag">WRITTEN SECONDS AGO</span>' : '') +
+      '</div><div class="rr">' +
+        '<span class="dec ' + esc(e.decision) + '">' + esc(e.decision) + '</span>' +
+        '<span class="rel">rel ' + Number(e.relevance || 0).toFixed(3) + '</span>' +
+      '</div></div>' +
+      '<div class="cite-q">' + esc(e.question) + '</div>' +
+      '<div class="cite-rat">“' + esc(e.rationale) + '”</div>' +
+    '</div>';
+  }).join("");
+}
+
+function evContradiction(ev){
+  if (!ev.length) return '<div class="ev-none">No contradictions between documents.</div>';
+  return ev.map(function(e){
+    var vals = e.values || [];
+    var h = '<div class="conflict"><div class="cf">' + esc(e.label) +
+            ' · severity ' + Number(e.severity || 0).toFixed(2) + '</div><div class="cf-pair">';
+    vals.slice(0, 2).forEach(function(v){
+      h += '<div class="cf-side"><div class="k">' + esc(v.doc_type || "source") + '</div>' +
+           '<div class="v">' + esc(v.value) + '</div>' +
+           '<div class="fn">' + esc(v.filename) + '</div></div>';
+    });
+    h += '</div>';
+    if (e.why) h += '<div class="cf-note"><b>' + esc(e.why) + '</b></div>';
+    return h + '</div>';
+  }).join("");
+}
+
+function evIntegrity(ev){
+  if (!ev.length) return '<div class="ev-none">No expiry, staleness or specimen defects.</div>';
+  return ev.map(function(e){
+    return '<div class="find"><span class="sev ' + (e.severity >= 0.7 ? "hi" : "md") + '">' +
+      Number(e.severity || 0).toFixed(2) + '</span><span><div class="t">' + esc(e.label) +
+      '</div><div class="d">' + esc(e.detail) + (e.filename ? " · " + esc(e.filename) : "") +
+      '</div></span></div>';
+  }).join("");
+}
+
+function evGraph(ev){
+  if (!ev.length) return '<div class="ev-none">No ownership edges parsed yet.</div>';
+  return ev.map(function(e){
+    var path = e.path || [];
+    var h = '<div class="gpath" style="margin-bottom:7px">';
+    path.forEach(function(n, i){
+      if (i) h += '<div class="edge">owns / linked <b>↓</b></div>';
+      var cls = i === 0 ? "self" : (i === path.length - 1 ? "flag" : "");
+      h += '<div class="node ' + cls + '"><span class="hop">' + i + '</span>' +
+           '<span><div class="nm">' + esc(n) + '</div></span></div>';
+    });
+    h += '<div class="gp-note"><b>' + esc(e.label) + '</b> &mdash; ' + esc(e.detail) + '</div></div>';
+    return h;
+  }).join("");
+}
+
+function renderBars(st){
+  var bd = st.score.breakdown || {};
+  var total = 0;
+  COMPS.forEach(function(c){ total += (((bd[c.k] || {}).evidence) || []).length; });
+  $("evCount").textContent = "evidence · " + total + " item" + (total === 1 ? "" : "s");
+
+  var sig = JSON.stringify(bd);
+  if (sigs.bars === sig) return;
+  sigs.bars = sig;
+
+  var h = "";
+  COMPS.forEach(function(c){
+    var b = bd[c.k] || { score:0, contribution:0, evidence:[] };
+    var ev = b.evidence || [];
+    var col = sevCol(b.score || 0);
+    var open = openBars[c.k] ? " open" : "";
+    var fired = ev.length ? " fired" : "";
+    h += '<div class="bar' + open + fired + '" data-k="' + c.k + '">';
+    h += '<div class="bar-h"><span class="bar-caret">&#9654;</span>' +
+         '<span class="bar-name"><span class="n">' + c.k + '</span>' +
+         '<span class="w">w ' + c.w + '</span>' +
+         (c.star ? '<span class="star">★</span>' : '') + '</span>' +
+         '<span class="bar-num" style="color:' + col + '">' + Number(b.score || 0).toFixed(2) + '</span></div>';
+    h += '<div class="bar-track"><div class="bar-fill" style="width:' + (Math.max(0, Math.min(1, b.score || 0)) * 100).toFixed(1) +
+         '%;background:' + col + '"></div><div class="bar-ticks"><i style="left:35%"></i><i style="left:70%"></i></div></div>';
+    h += '<div class="bar-meta"><span class="op">' + c.op + '</span>' +
+         '<span>contributes ' + Number(b.contribution || 0).toFixed(3) + ' · ' + ev.length + ' item' + (ev.length === 1 ? "" : "s") + '</span></div>';
+    h += '<div class="ev"><div class="ev-h">' +
+         (c.k === "precedent" ? "retrieved verdicts · verdicts collection" : "evidence") + '</div>';
+    h += c.k === "precedent" ? evPrecedent(ev)
+       : c.k === "contradiction" ? evContradiction(ev)
+       : c.k === "integrity" ? evIntegrity(ev)
+       : evGraph(ev);
+    h += '</div></div>';
+  });
+  $("bars").innerHTML = h;
+}
+
+/* ---------------------------------------------------------------- chrome / beat cell */
+function renderChrome(st){
+  $("clientName").textContent = st.client.name || st.client._id;
+  $("clientId").innerHTML = "client_id " + esc(st.client._id) + " &middot; " +
+    esc((st.client.entity || {}).company_number || "") + " &middot; " + esc(st.client.country || "");
+
+  var bd = st.score.breakdown || {};
+  var ops = [
+    { l:"voyage-4", on:(st.documents || []).length > 0 },
+    { l:"$vectorSearch", on:(((bd.contradiction || {}).evidence) || []).length > 0 },
+    { l:"$rankFusion", on:(((bd.precedent || {}).evidence) || []).length > 0 },
+    { l:"$graphLookup", on:(((bd.graph || {}).evidence) || []).length > 0 },
+    { l:"verdicts", on:(((bd.precedent || {}).evidence) || []).some(function(e){ return e.just_written; }) }
+  ];
+  var oh = ops.map(function(o){ return '<span class="opbadge' + (o.on ? " hot" : "") + '">' + o.l + '</span>'; }).join("");
+  if (sigs.ops !== oh){ sigs.ops = oh; $("ops").innerHTML = oh; }
+
+  var n = (st.documents || []).length;
+  var justW = (((bd.precedent || {}).evidence) || []).filter(function(e){ return e.just_written; })[0];
+  $("beatIdx").textContent = "STAGE " + n;
+  var title, body;
+  if (justW){
+    title = "Re-scored on a colleague's judgment";
+    body = "No new document. One insert into <em>verdicts</em> — <em>" + esc(justW.accountant) +
+           "</em> called an analogous file <em>" + esc(justW.decision) +
+           "</em>, it was retrieved at relevance " + Number(justW.relevance || 0).toFixed(3) +
+           ", and the risk was re-priced citing him by name.";
+  } else if (n === 0){
+    title = "Empty file";
+    body = "Nothing but the intake form. Confidence <em>" + Math.round((st.score.confidence || 0) * 100) +
+           "%</em>, risk <em>unknown</em> — not low. An empty file is not a safe file.";
+  } else {
+    title = n + " document" + (n === 1 ? "" : "s") + " in the file";
+    body = "Fields resolve as documents land; risk is content-driven and moves either way. " +
+           (st["case"] ? "The follow-up agent has opened a case and drafted the client email." :
+                         "Nothing contradicts yet.");
+  }
+  $("beatTitle").textContent = title;
+  $("beatBody").innerHTML = body;
+
+  var parts = COMPS.map(function(c){
+    var b = bd[c.k] || {};
+    return "<b>" + c.w + "</b>×" + Number(b.score || 0).toFixed(2);
+  }).join(" + ");
+  var unknown = !n;
+  $("composite").innerHTML = "risk = " + parts + " = <b>" +
+    (unknown ? "unknown" : Number(st.score.risk || 0).toFixed(3)) + "</b> · " +
+    (unknown ? "UNKNOWN" : esc(st.score.risk_level)) +
+    "<br>confidence = resolved / required = <b>" + (st.score.completeness || {}).resolved + " / " +
+    (st.score.completeness || {}).total + "</b> · " + esc(st.score.confidence_level);
+}
+
+/* ---------------------------------------------------------------- apply */
+function apply(st){
+  state = st;
+  renderChrome(st);
+  setDials(st.score, (st.documents || []).length);
+  renderForm(st);
+  renderDocs(st);
+  renderCase(st);
+  renderBars(st);
+}
+
+/* ---------------------------------------------------------------- net */
+function showErr(m){
+  var e = $("err"); e.textContent = m; e.className = "err on";
+  setTimeout(function(){ e.className = "err"; }, 6000);
+}
+function toast(t1, t2){
+  $("toastT1").innerHTML = t1; $("toastT2").innerHTML = t2;
+  $("toast").className = "toast on";
+  setTimeout(function(){ $("toast").className = "toast"; }, 6500);
+}
+
+function get(){
+  return fetch("/api/state/" + CLIENT, { cache:"no-store" }).then(function(r){
+    if (!r.ok) throw new Error("state " + r.status);
+    return r.json();
+  });
+}
+function post(url, body){
+  return fetch(url, {
+    method:"POST",
+    headers:{ "content-type":"application/json" },
+    body:JSON.stringify(body || {})
+  }).then(function(r){
+    return r.json().then(function(j){
+      if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+      return j;
+    });
+  });
+}
+
+function poll(){
+  if (held || busy) return;
+  get().then(apply).catch(function(e){ showErr("poll: " + e.message); });
+}
+
+/* ---------------------------------------------------------------- events */
+document.addEventListener("click", function(ev){
+  var bh = ev.target.closest ? ev.target.closest(".bar-h") : null;
+  if (bh){
+    var bar = bh.parentNode, k = bar.dataset.k;
+    openBars[k] = !openBars[k];
+    bar.className = "bar" + (openBars[k] ? " open" : "") + (bar.className.indexOf("fired") >= 0 ? " fired" : "");
+    return;
+  }
+  var sb = ev.target.closest ? ev.target.closest(".stagebtn") : null;
+  if (sb && !sb.disabled && !busy){
+    var id = sb.dataset.doc;
+    sb.disabled = true; busy = true;
+    post("/api/clients/" + CLIENT + "/documents", { doc_id:id }).then(function(st){
+      busy = false; held = false; sigs.staged = null;
+      apply(st);
+      toast("documents &middot; insertOne", "<code>" + esc(id) + "</code> extracted and merged into <code>clients.resolved_fields</code>. Score recomputed.");
+    }).catch(function(e){ busy = false; sb.disabled = false; showErr("drop: " + e.message); });
+    return;
+  }
+  var vb = ev.target.closest ? ev.target.closest(".vbtn") : null;
+  if (vb){
+    var dec = vb.dataset.dec;
+    var who = $("who").value.trim() || "Colleague";
+    var rat = $("rationale").value.trim();
+    if (!rat){ showErr("rationale is required"); return; }
+    document.querySelectorAll(".vbtn").forEach(function(b){ b.className = b.className.replace(" sel", ""); });
+    vb.className += " sel";
+    busy = true;
+    post("/api/verdicts", {
+      question: LIVE_VERDICT.question, decision: dec, rationale: rat, accountant: who
+    }).then(function(res){
+      busy = false;
+      /* HOLD: the verdict is written and the server has already re-priced, but the
+         dials keep the pre-verdict number until the operator presses Re-score. */
+      held = true;
+      $("pending").className = "pending on";
+      $("pendTx").innerHTML = "1 new verdict in memory since last score" +
+        '<small id="pendSub">' + esc(who) + " · kyc_risk · " + esc(dec) + " · press Re-score to apply</small>";
+      $("rescore").className = "rescore ready";
+      toast("verdicts &middot; insertOne", "<code>" + esc(who) + "</code> recorded <code>" + esc(dec) +
+        "</code> into the <code>verdicts</code> collection. No retraining, no restart — press RE-SCORE.");
+    }).catch(function(e){ busy = false; showErr("verdict: " + e.message); });
+    return;
+  }
+  if (ev.target.closest && ev.target.closest("#rescore")){
+    var btn = $("rescore");
+    btn.className = "rescore busy"; busy = true;
+    post("/api/rescore/" + CLIENT, {}).then(function(st){
+      busy = false; held = false;
+      btn.className = "rescore";
+      $("pending").className = "pending";
+      openBars.precedent = true;
+      apply(st);
+    }).catch(function(e){ busy = false; btn.className = "rescore"; showErr("rescore: " + e.message); });
+    return;
+  }
+  if (ev.target.closest && ev.target.closest("#resetBtn")){
+    busy = true;
+    post("/api/reset", { client_id:CLIENT }).then(function(st){
+      busy = false; held = false; hist = []; sigs = {};
+      shownConf = 0; shownRisk = null;
+      $("pending").className = "pending";
+      $("rescore").className = "rescore";
+      document.querySelectorAll(".vbtn").forEach(function(b){ b.className = b.className.replace(" sel", ""); });
+      apply(st);
+      toast("store &middot; reseed", "Demo state reset. documents cleared, verdict corpus restored.");
+    }).catch(function(e){ busy = false; showErr("reset: " + e.message); });
+  }
+});
+
+/* ---------------------------------------------------------------- boot */
+$("rationale").value = LIVE_VERDICT.rationale;
+$("who").value = LIVE_VERDICT.accountant;
+$("qbox").textContent = "question — " + LIVE_VERDICT.question;
+
+function clock(){
+  var d = new Date();
+  var M = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  function p(n){ return (n < 10 ? "0" : "") + n; }
+  $("clock").innerHTML = p(d.getDate()) + " " + M[d.getMonth()] + " " + d.getFullYear() +
+    " &middot; " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+}
+clock(); setInterval(clock, 1000);
+
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>
