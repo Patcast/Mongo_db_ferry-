@@ -140,7 +140,10 @@ async function mongoStore(uri, dbName) {
 
 export async function createStore() {
   const uri = process.env.MONGODB_URI;
-  const mode = process.env.STORE_MODE ?? (uri ? "mongo" : "memory");
+  // `||` not `??`: .env.example ships `STORE_MODE=` with no value, and an empty string is not
+  // nullish — with `??` the blank wins and the app silently runs in memory while MONGODB_URI is
+  // fully configured. Cost a real debugging session on the sandbox.
+  const mode = process.env.STORE_MODE || (uri ? "mongo" : "memory");
 
   if (mode === "mongo") {
     if (!uri) throw new Error("STORE_MODE=mongo but MONGODB_URI is not set");

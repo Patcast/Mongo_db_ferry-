@@ -1,8 +1,46 @@
 # Atlas setup — lane F
 
-Everything here is UI work in Atlas, not code. Verified against MongoDB docs on 2026-08-13.
-Where this disagrees with `context.md` / `plan.md`, **this file is right** — those were written
-from memory and are wrong in four specific places (see the table in `TASKS.md`).
+Verified against MongoDB docs on 2026-08-13, then **measured against a live cluster the same
+day**. Where this disagrees with `context.md` / `plan.md`, **this file is right** — those were
+written from memory and are wrong in four specific places (see the table in `TASKS.md`).
+
+Most of this is no longer UI work: `scripts/indexes.js` creates both indexes from the driver
+and waits for READY. The parts that remain UI-only are cluster creation and the Native
+Reranking toggle.
+
+```bash
+npm run seed                                      # 1. documents first — autoEmbed needs them
+node --env-file-if-exists=.env scripts/indexes.js # 2. both indexes, waits for READY
+npm run check                                     # 3. preflight; non-zero unless fully live
+npm run reset                                     # between rehearsals
+```
+
+## Measured on the first sandbox cluster — `cluster0.zxa2wwi`, 2026-08-13
+
+Shared tier (M0/Flex), **MongoDB 8.0.29**. What this tier actually does:
+
+| | Result |
+|---|---|
+| `autoEmbed` + `voyage-4` on `verdicts.rationale` | ✅ **works** — built READY in ~75s over 17 verdicts |
+| `verdicts_text_idx` (`dynamic: true`) | ✅ works — READY in ~30s |
+| `$rankFusion` | ✅ **works, no support case needed** — correcting the claim below |
+| `$rerank` | ❌ `"$rerank is not allowed or the syntax is incorrect"` |
+| `hostInfo` admin command | ❌ blocked — this is the reliable shared-tier tell |
+
+So the ladder in `src/retrieval.js` lands on rung **two of three** here: real vector + lexical
+retrieval with Voyage embeddings, no reranking. Good enough to build and rehearse against;
+**not** what the video should claim. Getting rung one needs 8.3, which needs M10+ on "Latest
+Version With Auto Upgrades".
+
+## ⚠️ `STORE_MODE=` empty silently forces the memory store
+
+`.env.example` ships `STORE_MODE=` with no value. `src/store.js` reads it with `??`, and an
+empty string is not nullish — so the empty value wins over the `MONGODB_URI` default and the
+app runs in memory **while `.env` is fully configured**. Cost an unexplained "seeded 17
+verdicts" against nothing.
+
+**In `.env`, either delete the line or set `STORE_MODE=mongo`.** `npm run check` catches this
+as its first assertion.
 
 ## 0. Cluster — get this right the first time
 
@@ -11,9 +49,11 @@ from memory and are wrong in four specific places (see the table in `TASKS.md`).
 - **Tier: M10 or higher**, and in Cluster Builder pick **"Latest Version With Auto Upgrades"**.
 
   Why this is not negotiable: `$rerank` and `$scoreFusion` require **MongoDB 8.3**. Free (M0)
-  and Flex clusters are permanently pinned to **8.0** and cannot be upgraded — ever. On 8.0.X
-  even `$rankFusion` needs a support case. Pick M0 and the star pipeline degrades to plain
-  `$vectorSearch`.
+  and Flex clusters are permanently pinned to **8.0** and cannot be upgraded — ever. Pick M0
+  and the star pipeline degrades one rung, to `$rankFusion` without reranking.
+
+  ~~On 8.0.X even `$rankFusion` needs a support case.~~ **Measured false** — `$rankFusion` ran
+  on 8.0.29 shared tier with no support case. The degradation is one rung, not two.
 - Network Access → add your IP (or `0.0.0.0/0` for the day).
 - Database Access → create a user, then hand the connection string over as `MONGODB_URI`.
 
@@ -35,8 +75,9 @@ index on an empty collection and there is nothing to embed.
 
 ## 3. Vector Search index — `verdicts.rationale`
 
-Atlas UI → Search → Create Search Index → **Atlas Vector Search** → JSON editor.
-Name it **`verdict_vec_idx`** on database `ledger_memory`, collection `verdicts`.
+`scripts/indexes.js` creates this for you; the JSON below is what it sends, kept here because
+the UI route still exists. Atlas UI → Search → Create Search Index → **Atlas Vector Search** →
+JSON editor. Name it **`verdict_vec_idx`** on database `ledger_memory`, collection `verdicts`.
 
 ```json
 {

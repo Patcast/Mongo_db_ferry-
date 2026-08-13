@@ -1,6 +1,38 @@
 {
   "_readme": [
-    "TEAMMATE: this is a WORKING placeholder, not a finished fixture set. The app runs on it today.",
+    "DOCUMENT SET — the five artifacts a Belgian accounting practice actually collects when onboarding",
+    "a self-employed client / small BV, dropped in this order:",
+    "  1 DOC_REGISTRATION  KBO_EXTRACT   uittreksel Kruispuntbank van Ondernemingen / Banque-Carrefour",
+    "                                    des Entreprises — enterprise number, legal form, seat.",
+    "  2 DOC_PASSPORT      BELGIAN_EID   director's eID. PLANTED: expired 2024-08-02 + SPECIMEN watermark.",
+    "  3 DOC_UTILITY       PROOF_OF_ADDRESS  ENGIE electricity bill. PLANTED: same street as the KBO seat",
+    "                                    in the other language, DIFFERENT NUMBER (Wetstraat 12 vs Rue de",
+    "                                    la Loi 120). This is the best beat in the demo — do not weaken it.",
+    "  4 DOC_INCOME        FINANCIAL_STATEMENTS  jaarrekening neergelegd bij de Nationale Bank van Belgie.",
+    "                                    PLANTED: filed 2023-03-31, stale (>18 months).",
+    "  5 DOC_OWNERSHIP     UBO_EXTRACT_OWNERSHIP_CHART  FOD Financien UBO-register extract + ownership chart.",
+    "                                    extracted.ownership_structure is what gates the graph scorer.",
+    "  6 DOC_EID_REPLACEMENT  BELGIAN_EID  new beat: client returns a valid eID (expires 2031-05-02) that",
+    "                                    supersedes DOC_PASSPORT.",
+    "",
+    "THREE THINGS THAT LOOK LIKE DATA BUT ARE CONTRACTS WITH src/scorers.js — read before editing:",
+    " - DOC_INCOME.type MUST stay 'FINANCIAL_STATEMENTS'. The staleness check in integrity() is keyed on",
+    "   that exact string, so renaming it to ANNUAL_ACCOUNTS silently deletes beat 4. The artifact is",
+    "   relabelled in filename/page_text instead. Rename the type only together with scorers.js:218.",
+    " - DOC_OWNERSHIP.type carries the words OWNERSHIP CHART on purpose. Document types are fed into the",
+    "   precedent retrieval query verbatim; a bare 'UBO_EXTRACT' drops risk-after-four-documents from",
+    "   0.494 to 0.456 and stops the live verdict flipping the band MEDIUM->HIGH. Re-run the numbers below",
+    "   after ANY type rename.",
+    " - extracted keys registered_address / operating_address / legal_name / company_number are hardcoded",
+    "   in COMPARE_FIELDS. Renaming them silently kills the address contradiction.",
+    " - DOC_EID_REPLACEMENT.supersedes is data only — no scorer reads it yet. Until integrity() skips an",
+    "   expired document that a later one supersedes, beat 6 refreshes the id fields but does not lower risk.",
+    "",
+    "REFERENCE NUMBERS (AS_OF=2026-08-13, memory store, docs 1/2/3/5 dropped in order):",
+    "  empty 0 LOW / 4% / 1 of 23 -> 0.052 / 26% / 6 -> 0.225 / 39% / 9 -> 0.337 / 44% / 10",
+    "  -> 0.494 MEDIUM / 56% / 13 of 23; live verdict then takes risk to 0.722 HIGH.",
+    "",
+    "TEAMMATE: this is still a WORKING placeholder, not a finished fixture set.",
     "Priority order if you only have time for one thing: verify verdict VD_ANALOGOUS still retrieves",
     "first for the persona's document summary (run `npm run check`). That single verdict is ~80% of",
     "the data value in a 60-second demo. Everything else is plausible noise around it.",
@@ -36,15 +68,15 @@
       "source_of_funds",
       "id_document",
       "id_expiry",
+      "national_register_number",
       "proof_of_address",
+      "articles_of_association",
       "financial_statements",
       "financial_year",
       "ubo_declaration",
       "ubo_names",
       "ownership_structure",
-      "bank_account_iban",
-      "tax_residency",
-      "politically_exposed"
+      "engagement_letter"
     ],
     "resolved_fields": {
       "country": "BE"
@@ -54,16 +86,15 @@
   "staged_documents": [
     {
       "_id": "DOC_REGISTRATION",
-      "type": "COMPANY_REGISTRATION",
-      "filename": "kbo_registration_0721489336.pdf",
-      "issued_date": "2019-04-08",
+      "type": "KBO_EXTRACT",
+      "filename": "kbo_uittreksel_0721489336.pdf",
+      "issued_date": "2026-07-02",
       "expiry_date": null,
       "jurisdiction": "BE",
-      "page_text": "Kruispuntbank van Ondernemingen. Uittreksel. Verhoeven Logistics BV, ondernemingsnummer 0721.489.336, BTW BE 0721.489.336. Rechtsvorm: besloten vennootschap. Datum oprichting 8 april 2019. Maatschappelijke zetel: Wetstraat 12, 1040 Brussel. Activiteit: goederenvervoer over de weg.",
+      "page_text": "FOD Economie — Kruispuntbank van Ondernemingen (KBO) / Banque-Carrefour des Entreprises (BCE). Uittreksel afgeleverd op 02/07/2026. Ondernemingsnummer 0721.489.336. Naam: Verhoeven Logistics BV. Rechtsvorm: besloten vennootschap (BV). Begindatum: 08/04/2019. Maatschappelijke zetel: Wetstraat 12, 1040 Brussel. Hoedanigheden: onderneming onderworpen aan de BTW — actief (BTW-attest afzonderlijk op te vragen). Activiteit NACEBEL 49.410 — goederenvervoer over de weg. Vestigingseenheid: 2.221.417.883.",
       "extracted": {
         "legal_name": "Verhoeven Logistics BV",
         "company_number": "0721.489.336",
-        "vat_number": "BE 0721.489.336",
         "legal_form": "BV",
         "incorporation_date": "2019-04-08",
         "registered_address": "Wetstraat 12, 1040 Brussel",
@@ -74,28 +105,28 @@
     },
     {
       "_id": "DOC_PASSPORT",
-      "type": "PASSPORT",
-      "filename": "vandamme_passport_specimen.jpg",
+      "type": "BELGIAN_EID",
+      "filename": "vandamme_eid_specimen.jpg",
       "issued_date": "2014-08-03",
       "expiry_date": "2024-08-02",
       "jurisdiction": "BE",
-      "page_text": "KONINKRIJK BELGIE ROYAUME DE BELGIQUE PASPOORT PASSEPORT SPECIMEN. Naam VANDAMME Voornaam Joris. Nationaliteit Belgische. Geldig tot 02 AUG 2024.",
+      "page_text": "KONINKRIJK BELGIE — ROYAUME DE BELGIQUE. IDENTITEITSKAART / CARTE D'IDENTITE. SPECIMEN. Naam / Nom: VANDAMME. Voornamen / Prenoms: Joris Marc. Nationaliteit / Nationalite: Belg / Belge. Geboorteplaats en -datum: Gent, 14.03.1979. Rijksregisternummer / Numero de registre national: 79.03.14-217.43. Kaartnummer: 592-1234567-89. Geldig van 03.08.2014 tot 02.08.2024.",
       "extracted": {
-        "id_document": "Passport EL8842197 (SPECIMEN)",
+        "id_document": "Belgian eID 592-1234567-89 — VANDAMME Joris (SPECIMEN)",
         "id_expiry": "2024-08-02",
-        "person_name": "Joris Vandamme"
+        "national_register_number": "79.03.14-217.43"
       },
       "defect": "expired",
       "beat": 2
     },
     {
       "_id": "DOC_UTILITY",
-      "type": "UTILITY_BILL",
+      "type": "PROOF_OF_ADDRESS",
       "filename": "engie_facture_2026_06.pdf",
       "issued_date": "2026-06-30",
       "expiry_date": null,
       "jurisdiction": "BE",
-      "page_text": "ENGIE Electrabel. Facture d'electricite. Client: Verhoeven Logistics BV. Adresse de fourniture: Rue de la Loi 120, 1040 Bruxelles. Periode du 01/06/2026 au 30/06/2026.",
+      "page_text": "ENGIE Electrabel SA. Facture d'electricite — preuve d'adresse. Client: Verhoeven Logistics BV, TVA BE 0721.489.336. Adresse de fourniture: Rue de la Loi 120, 1040 Bruxelles. Code EAN 541448820000123456. Periode du 01/06/2026 au 30/06/2026. Montant 1.184,22 EUR.",
       "extracted": {
         "proof_of_address": "engie_facture_2026_06.pdf",
         "operating_address": "Rue de la Loi 120, 1040 Bruxelles",
@@ -107,13 +138,13 @@
     {
       "_id": "DOC_INCOME",
       "type": "FINANCIAL_STATEMENTS",
-      "filename": "jaarrekening_2022.pdf",
+      "filename": "jaarrekening_2022_nbb.pdf",
       "issued_date": "2023-03-31",
       "expiry_date": null,
       "jurisdiction": "BE",
-      "page_text": "Jaarrekening boekjaar 2022. Verhoeven Logistics BV. Omzet 1.240.000 EUR. Bedrijfsresultaat 96.400 EUR. Neergelegd bij de Nationale Bank van Belgie op 31 maart 2023.",
+      "page_text": "Nationale Bank van Belgie — Balanscentrale. Jaarrekening model MICRO, boekjaar 2022 (01/01/2022 - 31/12/2022). Verhoeven Logistics BV, ondernemingsnummer 0721.489.336. Omzet 1.240.000 EUR. Bedrijfsresultaat 96.400 EUR. Eigen vermogen 312.700 EUR. Neergelegd op 31 maart 2023, referentie 23103-0451-021.",
       "extracted": {
-        "financial_statements": "jaarrekening_2022.pdf",
+        "financial_statements": "jaarrekening_2022_nbb.pdf",
         "financial_year": "2022",
         "expected_turnover": "1240000"
       },
@@ -122,19 +153,36 @@
     },
     {
       "_id": "DOC_OWNERSHIP",
-      "type": "OWNERSHIP_CHART",
-      "filename": "ubo_structuur.pdf",
+      "type": "UBO_EXTRACT_OWNERSHIP_CHART",
+      "filename": "ubo_register_uittreksel_2026.pdf",
       "issued_date": "2026-01-15",
       "expiry_date": null,
       "jurisdiction": "BE",
-      "page_text": "UBO structuur Verhoeven Logistics BV. Deelneming 40 procent in Meridiaan Freight BVBA. Uiteindelijke begunstigde: Joris Vandamme, 100 procent van Verhoeven Logistics BV.",
+      "page_text": "FOD Financien / SPF Finances — UBO-register. Uittreksel van 15/01/2026 voor Verhoeven Logistics BV (0721.489.336). Uiteindelijke begunstigde: VANDAMME Joris Marc, rijksregisternummer 79.03.14-217.43, rechtstreekse deelneming 100 procent, categorie 1a. Bijlage: aandeelhoudersstructuur — Verhoeven Logistics BV houdt een deelneming van 40 procent in Meridiaan Freight BVBA (0644.812.155).",
       "extracted": {
-        "ubo_declaration": "ubo_structuur.pdf",
+        "ubo_declaration": "ubo_register_uittreksel_2026.pdf",
         "ubo_names": "Joris Vandamme",
         "ownership_structure": "Verhoeven Logistics BV -> Meridiaan Freight BVBA (40%)"
       },
       "defect": "graph_link",
       "beat": 5
+    },
+    {
+      "_id": "DOC_EID_REPLACEMENT",
+      "type": "BELGIAN_EID",
+      "filename": "vandamme_eid_2026.jpg",
+      "supersedes": "DOC_PASSPORT",
+      "issued_date": "2026-05-03",
+      "expiry_date": "2031-05-02",
+      "jurisdiction": "BE",
+      "page_text": "KONINKRIJK BELGIE — ROYAUME DE BELGIQUE. IDENTITEITSKAART / CARTE D'IDENTITE. Naam / Nom: VANDAMME. Voornamen / Prenoms: Joris Marc. Nationaliteit / Nationalite: Belg / Belge. Geboorteplaats en -datum: Gent, 14.03.1979. Rijksregisternummer / Numero de registre national: 79.03.14-217.43. Kaartnummer: 592-9987654-21. Afgeleverd door de gemeente Etterbeek. Geldig van 03.05.2026 tot 02.05.2031.",
+      "extracted": {
+        "id_document": "Belgian eID 592-9987654-21 — VANDAMME Joris",
+        "id_expiry": "2031-05-02",
+        "national_register_number": "79.03.14-217.43"
+      },
+      "defect": null,
+      "beat": 6
     }
   ],
 
@@ -208,14 +256,17 @@
     "the first document and the colleague's live verdict moves risk by ~0.07 with no band change —",
     "which destroys the entire pitch. Memory must genuinely lack this judgment until a human",
     "supplies it on stage. The UI should pre-fill the verdict form from this object so the demo",
-    "driver only has to click HIGH."
+    "driver only has to click HIGH.",
+    "Wording note: this verdict names the client's documents, so it uses the same vocabulary as the",
+    "fixtures above (proof of address, Belgian eID). Retrieval is lexical on the local backend — if",
+    "you rename a document type, rename it here too or this verdict stops ranking first."
   ],
   "live_verdict": {
     "_id": "VD_ANALOGOUS",
     "decision_type": "kyc_risk",
-    "question": "Should we onboard a Brussels road-freight company whose utility bill shows a different street number from the registered seat, with an expired director passport and a 40% holding in a group we have previously declined?",
+    "question": "Should we onboard a Brussels road-freight company whose proof of address shows a different street number from the registered seat, with an expired Belgian eID for the director and a 40% holding in a group we have previously declined?",
     "decision": "HIGH",
-    "rationale": "Declined. The address discrepancy was not a translation artefact — Wetstraat and Rue de la Loi are the same street, but numbers 12 and 120 are half a kilometre apart, and 120 is a serviced mailbox address we have seen used by three other freight companies. Combined with a director ID that lapsed two years before application and a 40% participation reaching a group we declined in 2025 over a shared account, this is a corporate-shell pattern rather than an administrative error. A single stale document is housekeeping. Three that all point the same direction is a structure.",
+    "rationale": "Declined. The address discrepancy was not a translation artefact — Wetstraat and Rue de la Loi are the same street, but numbers 12 and 120 are half a kilometre apart, and 120 is a serviced mailbox address we have seen used by three other freight companies. Combined with a director eID that lapsed two years before application and a 40% participation reaching a group we declined in 2025 over a shared account, this is a corporate-shell pattern rather than an administrative error. A single stale document is housekeeping. Three that all point the same direction is a structure.",
     "accountant": "M. Dubois",
     "date": "2026-02-11"
   },
