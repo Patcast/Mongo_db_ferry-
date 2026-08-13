@@ -21,7 +21,7 @@ that reliably breaks that is two agents editing one file. So:
 | A. Storage + retrieval + scorers | `src/store.js` `src/retrieval.js` `src/scorers.js` `data/demo-data.json` | ✅ done |
 | B. Composite score + API | `src/score.js` `src/server.js` | ✅ done — server boots, full beat sequence verified |
 | C. Static mockup | `mockup/index.html` | ✅ done — offline, 6 steppable states |
-| D. Follow-up agent (RFI) | `src/rfi.js` | 🟢 **free** |
+| D. Follow-up agent (RFI) | `src/rfi.js` | ✅ done — opens cases, drafts RFI naming the document and date |
 | E. Live UI | `public/index.html` (+ `public/*`) | 🟢 **free** |
 | F. Atlas setup + indexes | `atlas/indexes.md` `scripts/check.js` `scripts/reset.js` | 🟡 **claimed — sandbox in progress.** Index JSON is written and verified in `atlas/indexes.md`; follow it top to bottom |
 | G. Judged docs | `README.md` `DEMO.md` | 🟢 **free** |
