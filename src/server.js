@@ -179,7 +179,10 @@ export async function createApp(store) {
     console.log(`${req.method} ${req.path}`);
     next();
   });
-  app.use(express.static(path.join(ROOT, "public")));
+    // Demo machine: never let a browser cache the page. A stale index.html during a
+  // recording looks exactly like a bug that is not there.
+  app.use((req, res, next) => { res.set("Cache-Control", "no-store, max-age=0"); next(); });
+app.use(express.static(path.join(ROOT, "public")));
 
   const wrap = (fn) => (req, res) =>
     Promise.resolve(fn(req, res)).catch((err) => {
