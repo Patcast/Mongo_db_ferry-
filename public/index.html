@@ -1439,6 +1439,15 @@ body.focus .dial-title{font-size:.95rem !important;letter-spacing:.14em !importa
 body.focus .gauge{transform:scale(1.06);transform-origin:center}
 body.focus .dials{padding-bottom:26px !important}
 
+/* keep the focused panel inside the viewport and scroll it, instead of letting
+   the 23-field filing form run over whatever sits below it */
+body.focus .col.show{min-height:0 !important;max-height:calc(100vh - 250px) !important;
+  overflow:hidden !important;display:flex !important;flex-direction:column !important}
+body.focus .col.show .colbody{flex:1 1 auto !important;min-height:0 !important;
+  overflow-y:auto !important;overscroll-behavior:contain}
+body.focus .col.show .colhead{flex:0 0 auto !important}
+body.focus #app{overflow:hidden}
+
 /* readable body copy */
 body.focus .col.show .colbody{font-size:15px !important}
 body.focus .col.show .colhead{font-size:14px !important}
