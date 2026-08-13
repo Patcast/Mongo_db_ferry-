@@ -202,16 +202,25 @@
     { "from": "ENT_DELHAYE", "to": "ENT_NOORDZEE", "pct": 15 }
   ],
 
+  "_live_verdict_note": [
+    "THIS IS THE DEMO'S PAYLOAD AND IT IS DELIBERATELY *NOT* SEEDED.",
+    "If this verdict is already in the corpus when the demo starts, precedent scores high from",
+    "the first document and the colleague's live verdict moves risk by ~0.07 with no band change —",
+    "which destroys the entire pitch. Memory must genuinely lack this judgment until a human",
+    "supplies it on stage. The UI should pre-fill the verdict form from this object so the demo",
+    "driver only has to click HIGH."
+  ],
+  "live_verdict": {
+    "_id": "VD_ANALOGOUS",
+    "decision_type": "kyc_risk",
+    "question": "Should we onboard a Brussels road-freight company whose utility bill shows a different street number from the registered seat, with an expired director passport and a 40% holding in a group we have previously declined?",
+    "decision": "HIGH",
+    "rationale": "Declined. The address discrepancy was not a translation artefact — Wetstraat and Rue de la Loi are the same street, but numbers 12 and 120 are half a kilometre apart, and 120 is a serviced mailbox address we have seen used by three other freight companies. Combined with a director ID that lapsed two years before application and a 40% participation reaching a group we declined in 2025 over a shared account, this is a corporate-shell pattern rather than an administrative error. A single stale document is housekeeping. Three that all point the same direction is a structure.",
+    "accountant": "M. Dubois",
+    "date": "2026-02-11"
+  },
+
   "verdicts": [
-    {
-      "_id": "VD_ANALOGOUS",
-      "decision_type": "kyc_risk",
-      "question": "Should we onboard a Brussels road-freight company whose utility bill shows a different street number from the registered seat, with an expired director passport and a 40% holding in a group we have previously declined?",
-      "decision": "HIGH",
-      "rationale": "Declined. The address discrepancy was not a translation artefact — Wetstraat and Rue de la Loi are the same street, but numbers 12 and 120 are half a kilometre apart, and 120 is a serviced mailbox address we have seen used by three other freight companies. Combined with a director ID that lapsed two years before application and a 40% participation reaching a group we declined in 2025 over a shared account, this is a corporate-shell pattern rather than an administrative error. A single stale document is housekeeping. Three that all point the same direction is a structure.",
-      "accountant": "M. Dubois",
-      "date": "2026-02-11"
-    },
     {
       "_id": "VD_0002",
       "decision_type": "kyc_risk",
