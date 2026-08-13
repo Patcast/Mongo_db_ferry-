@@ -23,12 +23,30 @@ that reliably breaks that is two agents editing one file. So:
 | C. Static mockup | `mockup/index.html` | ✅ done — offline, 6 steppable states |
 | D. Follow-up agent (RFI) | `src/rfi.js` | 🟢 **free** |
 | E. Live UI | `public/index.html` (+ `public/*`) | 🟢 **free** |
-| F. Atlas setup + indexes | `atlas/indexes.md` `scripts/check.js` `scripts/reset.js` `scripts/indexes.js` | 🟠 **live on Atlas, one rung short.** `cluster0.zxa2wwi` connected, seeded, both indexes READY, app verified `{"ok":true,"store":"mongo"}`. But it is **shared tier / 8.0.29**, so `$rerank` cannot run — retrieval lands on `$rankFusion`. **Needs an M10+ sandbox cluster to finish.** `scripts/{indexes,check,reset}.js` are written and repeatable: seed → indexes → check |
+| F. Atlas setup + indexes | `atlas/indexes.md` `scripts/check.js` `scripts/reset.js` `scripts/indexes.js` | 🟠 **live on Atlas, blocked on tier.** `cluster0.zxa2wwi` connected, seeded, both indexes READY, app verified `{"ok":true,"store":"mongo"}`. Scripts done and repeatable — `npm run atlas:setup` is the whole cluster move. Two blockers, both needing an **M10+ sandbox**: (1) shared tier / 8.0.29 ⇒ `$rerank` cannot run, retrieval lands on `$rankFusion`; (2) ⚠️ **query embedding rate-limits after 3 searches** — see below, this one is not lane F's to fix |
 | G. Judged docs | `README.md` `DEMO.md` | 🟢 **free** |
 | H. Seed | `scripts/seed.js` | ✅ done |
 
 Planning docs (`context.md`, `plan.md`, `onboarding_scope.md`, `judging.md`, `hackathon.md`)
 are reference. Do not let an agent rewrite them.
+
+### ⚠️ Cross-lane, found by F on the live cluster — lanes B and E must act
+
+`autoEmbed` embeds at **query** time. Measured: the **4th** back-to-back search returns
+`Embedding provider rate limit exceeded`, after which every Atlas rung throws, `searchVerdicts`
+silently falls back to in-process TF-IDF, and **nothing anywhere goes red** — both indexes still
+read READY and the UI looks perfect.
+
+`GET /api/state` re-scores on every request (`src/server.js` `buildState`), and lane E's brief
+polls it **every 2s**. That is ~30 embeddings/minute against a budget of 3: **Atlas is out of the
+retrieval path about six seconds into the recording**, and the video then narrates "vector
+search" over TF-IDF.
+
+- **Lane B** — cache `score()` per client, recompute on mutation only. Reads must not re-score.
+  This is the real fix and it is cheap.
+- **Lane E** — until B lands, poll at 5–10s, or drive off mutation responses instead of polling.
+- Verify with `npm run check -- --burst` on whatever cluster you record against. Do not assume
+  M10 raises the ceiling enough — that is unmeasured.
 
 ---
 

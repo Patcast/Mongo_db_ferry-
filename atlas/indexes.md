@@ -9,10 +9,18 @@ and waits for READY. The parts that remain UI-only are cluster creation and the 
 Reranking toggle.
 
 ```bash
-npm run seed                                      # 1. documents first — autoEmbed needs them
-node --env-file-if-exists=.env scripts/indexes.js # 2. both indexes, waits for READY
-npm run check                                     # 3. preflight; non-zero unless fully live
-npm run reset                                     # between rehearsals
+npm run atlas:setup   # seed → indexes → check, in the only order that works
+npm run reset         # between rehearsals
+```
+
+That chain is the whole cluster move: point `MONGODB_URI` at the new cluster and run it. The
+order is not cosmetic — `autoEmbed` embeds documents that already exist, so seeding after the
+index build leaves you with a READY index over nothing. The steps individually:
+
+```bash
+npm run seed      # 1. documents first — autoEmbed needs them
+npm run indexes   # 2. both indexes, waits for READY (~75s); --drop to rebuild
+npm run check     # 3. preflight; exits non-zero unless the top rung actually ran
 ```
 
 ## Measured on the first sandbox cluster — `cluster0.zxa2wwi`, 2026-08-13
@@ -26,11 +34,45 @@ Shared tier (M0/Flex), **MongoDB 8.0.29**. What this tier actually does:
 | `$rankFusion` | ✅ **works, no support case needed** — correcting the claim below |
 | `$rerank` | ❌ `"$rerank is not allowed or the syntax is incorrect"` |
 | `hostInfo` admin command | ❌ blocked — this is the reliable shared-tier tell |
+| sustained query embedding | ❌ **rate-limited after 3 back-to-back queries** — see below |
 
 So the ladder in `src/retrieval.js` lands on rung **two of three** here: real vector + lexical
 retrieval with Voyage embeddings, no reranking. Good enough to build and rehearse against;
 **not** what the video should claim. Getting rung one needs 8.3, which needs M10+ on "Latest
 Version With Auto Upgrades".
+
+## ⚠️ Query-time embedding is rate-limited — this will break the demo, not just degrade it
+
+`autoEmbed` embeds at **query** time too, not only at index time. Every `$vectorSearch` with
+`query: { text: … }` is one Voyage call. Measured on `cluster0.zxa2wwi`, 2026-08-13:
+
+```
+probe 1: 5 rows via $rankFusion (295ms)
+probe 2: 5 rows via $rankFusion (285ms)
+probe 3: 5 rows via $rankFusion (289ms)
+probe 4: PlanExecutor error :: Embedding provider rate limit exceeded, retry later
+```
+
+**Three queries.** After that every Atlas rung throws, `searchVerdicts` catches it, and the app
+serves in-process TF-IDF — while both indexes still report READY and nothing in the UI changes
+colour. This is the single most dangerous failure mode in the stack, because the demo keeps
+working and only the claim "this is vector search" becomes false.
+
+The arithmetic that matters: `GET /api/state` re-scores on every request (`src/server.js`
+`buildState`), precedent scoring runs one search, and the UI is specced to poll every 2s. That
+is ~30 embeddings/minute against a budget of 3. **The retrieval path is dead roughly six
+seconds into the recording.**
+
+Cheapest honest fixes, in order — all outside lane F, so they need their owners:
+1. **Don't re-score on read** (lane B, `src/server.js`). Cache the last `score()` per client and
+   recompute only on mutation. The poll then costs nothing and the demo is unaffected. This is
+   the right fix regardless of tier.
+2. Poll slower, 5–10s (lane E), or drive the UI off mutation responses instead of polling.
+3. Cache the query embedding in `src/retrieval.js` (lane A) — the precedent query barely changes
+   between re-scores.
+
+Whether an M10 raises the ceiling enough to matter is **unmeasured** — do not assume it does.
+Run `npm run check -- --burst` on the new cluster and read the number before recording.
 
 ## ⚠️ `STORE_MODE=` empty silently forces the memory store
 

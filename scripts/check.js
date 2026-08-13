@@ -10,9 +10,9 @@
 //
 //   npm run check          # with MONGODB_URI set
 //
-// It reads only. It never creates an index or writes a document — index creation is UI work
-// in Atlas by design (see atlas/indexes.md), because path/model/numDimensions/quantization
-// cannot be changed after creation and a script that guesses them wastes a rebuild.
+// It reads only. It never creates an index or writes a document — `npm run indexes` does that
+// (path/model/numDimensions/quantization cannot be changed after creation, so the definitions
+// live in exactly one place, scripts/indexes.js SPECS).
 
 import { fileURLToPath } from "node:url";
 import { createStore } from "../src/store.js";
@@ -58,20 +58,26 @@ function atLeast(actual, minimum) {
 
 // ---------------------------------------------------------------- checks
 
+// Returns true when the cluster is new enough for $rerank, so checkRetrieval can name the
+// one remaining cause instead of listing both. Null means buildInfo was blocked.
 async function checkVersion(store) {
   try {
     const info = await store.db.admin().command({ buildInfo: 1 });
     if (atLeast(info.version, MIN_VERSION)) {
       pass("cluster version", `${info.version} — $rerank and $scoreFusion available`);
+      return true;
     } else {
       fail(
         "cluster version",
         `${info.version}, need ${MIN_VERSION.join(".")}+. Free/Flex are pinned to 8.0 and ` +
           `cannot be upgraded — this needs an M10+ on "Latest Version With Auto Upgrades"`
       );
+      return false;
     }
   } catch (err) {
+    // hostInfo/buildInfo are blocked on shared tiers — the reliable tell, but not proof.
     warn("cluster version", `could not read buildInfo: ${err.message}`);
+    return null;
   }
 }
 
@@ -162,9 +168,92 @@ async function checkSearchIndexes(store) {
   }
 }
 
+// Automated embedding calls Voyage at QUERY time, once per search, and the provider rate-limits.
+// Measured on cluster0.zxa2wwi 2026-08-13: the 4th query in a burst returns
+// "Embedding provider rate limit exceeded, retry later" and every Atlas rung then fails, so
+// searchVerdicts silently returns in-process TF-IDF while both indexes still read READY.
+//
+// This matters more than it sounds: GET /api/state re-scores on every request (server.js), and
+// the UI is specced to poll it every 2s. That is ~30 query embeddings a minute — the budget is
+// gone about six seconds in, and the rest of the demo runs on TF-IDF while narrating vector
+// search. The ladder's own fallback hides it; nothing in the UI goes red.
+//
+// The probe runs the aggregation directly rather than through searchVerdicts, because the
+// ladder catches its own errors and the raw provider message is the whole diagnosis.
+async function probeEmbedding(store) {
+  try {
+    await store.db
+      .collection("verdicts")
+      .aggregate([
+        {
+          $vectorSearch: {
+            index: VEC_INDEX,
+            path: "rationale",
+            query: { text: PROBE },
+            numCandidates: 20,
+            limit: 1,
+          },
+        },
+        { $project: { _id: 1 } },
+      ])
+      .toArray();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message, rateLimited: /rate limit/i.test(err.message) };
+  }
+}
+
+// Off by default: it spends the very budget it measures, and leaving the cluster rate-limited
+// minutes before a rehearsal is its own failure mode. Run `npm run check -- --burst` once,
+// deliberately, when you want the number.
+async function checkEmbeddingBudget(store) {
+  const first = await probeEmbedding(store);
+  if (!first.ok) {
+    if (first.rateLimited) {
+      fail(
+        "embedding budget",
+        `query embedding is ALREADY rate-limited: "${first.error}". Atlas retrieval is dead ` +
+          `right now and searchVerdicts is silently serving in-process TF-IDF. Wait for the ` +
+          `window to reset before re-running`
+      );
+    } else {
+      fail("embedding budget", `query embedding failed: ${first.error}`);
+    }
+    return;
+  }
+
+  if (!process.argv.includes("--burst")) {
+    pass("embedding budget", "query embedding live (run with --burst to measure the ceiling)");
+    return;
+  }
+
+  let survived = 1;
+  for (let i = 0; i < 8; i++) {
+    const r = await probeEmbedding(store);
+    if (!r.ok) {
+      if (r.rateLimited) break;
+      fail("embedding budget", `burst probe ${survived + 1} failed: ${r.error}`);
+      return;
+    }
+    survived++;
+  }
+
+  if (survived > 8) {
+    pass("embedding budget", `${survived} back-to-back queries, no rate limit — polling is safe`);
+  } else {
+    fail(
+      "embedding budget",
+      `rate-limited after ${survived} back-to-back queries. A 2s UI poll spends that in ` +
+        `~${survived * 2}s, after which retrieval silently drops to TF-IDF for the rest of the ` +
+        `demo. Fix before recording: cache the score between mutations, or stop re-scoring on ` +
+        `read. See atlas/indexes.md "Query-time embedding is rate-limited"`
+    );
+  }
+}
+
 // The ladder in retrieval.js is the ground truth: it logs its own [precedent] lines as each
 // rung fails, so running it once diagnoses and verifies in the same call.
-async function checkRetrieval(store) {
+async function checkRetrieval(store, versionOk) {
   console.log("[check] running the real retrieval ladder — [precedent] lines below are its own:");
   let rows;
   try {
@@ -183,21 +272,32 @@ async function checkRetrieval(store) {
   if (rung === "$rankFusion + $rerank") {
     pass("precedent retrieval", `${rung} → ${rows.length} cases — full pipeline live`);
   } else if (rung === "$rankFusion") {
-    fail(
-      "precedent retrieval",
-      `${rung} → ${rows.length} cases, but $rerank did not run. Either the cluster is below ` +
-        `8.3, or Native Reranking is OFF: Atlas → Project Settings → "Native Reranking: ` +
-        `$rerank in the Aggregation Pipeline" → ON (needs Project Owner). Model: ${RERANK_MODEL}`
-    );
+    // Two possible causes, and the version check above already eliminated one of them.
+    // Saying "either A or B" when A is known-good sends you re-reading the wrong doc section.
+    const cause =
+      versionOk === true
+        ? `The cluster is 8.3+, so this is the toggle: Atlas → Project Settings → "Native ` +
+          `Reranking: $rerank in the Aggregation Pipeline" → ON (needs Project Owner). ` +
+          `Model: ${RERANK_MODEL}`
+        : versionOk === false
+          ? `The cluster is below 8.3 — that alone explains it. Move to an M10+ on "Latest ` +
+            `Version With Auto Upgrades" before touching anything else`
+          : `Cluster version could not be read. Check it is 8.3+, then Project Settings → ` +
+            `"Native Reranking" → ON (needs Project Owner). Model: ${RERANK_MODEL}`;
+    fail("precedent retrieval", `${rung} → ${rows.length} cases, but $rerank did not run. ${cause}`);
   } else if (rung === "$vectorSearch") {
     fail(
       "precedent retrieval",
       `${rung} → ${rows.length} cases — $rankFusion failed, so ${TXT_INDEX} is missing or unready`
     );
   } else {
+    // retrieval.js does not tag rows that fall through to its local backend, so `rung` is
+    // undefined here rather than "local tf-idf". Either way MongoDB is out of the path.
     fail(
       "precedent retrieval",
-      `fell all the way through to "${rung}" — MongoDB is not in the retrieval path at all. ` +
+      `fell all the way through to "${rung}" — MongoDB is not in the retrieval path at all, ` +
+        `the results above came from in-process TF-IDF. If the indexes are READY the cause is ` +
+        `almost always the query-embedding rate limit (see the embedding budget check). ` +
         `Do not record the video in this state`
     );
   }
@@ -225,10 +325,13 @@ async function main() {
   pass("store", `mongo — ${process.env.MONGODB_DB ?? "ledger_memory"}`);
 
   try {
-    await checkVersion(store);
+    const versionOk = await checkVersion(store);
     const seeded = await checkSeed(store);
     await checkSearchIndexes(store);
-    if (seeded) await checkRetrieval(store);
+    // Budget first: if embeddings are already limited, the ladder below reports a confusing
+    // total collapse and this names the actual reason.
+    if (seeded) await checkEmbeddingBudget(store);
+    if (seeded) await checkRetrieval(store, versionOk);
   } finally {
     await store.close();
   }
