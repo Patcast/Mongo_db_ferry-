@@ -1443,10 +1443,13 @@ body.focus .dials{padding-bottom:26px !important}
 
 /* keep the focused panel inside the viewport and scroll it, instead of letting
    the 23-field filing form run over whatever sits below it */
-body.focus .col.show{min-height:0 !important;max-height:calc(100vh - 250px) !important;
-  overflow:hidden !important;display:flex !important;flex-direction:column !important}
+body.focus .col.show{min-height:0 !important;max-height:52vh !important;
+  overflow:hidden !important;display:flex !important;flex-direction:column !important;
+  position:relative !important}
 body.focus .col.show .colbody{flex:1 1 auto !important;min-height:0 !important;
-  overflow-y:auto !important;overscroll-behavior:contain}
+  max-height:46vh !important;overflow-y:auto !important;overscroll-behavior:contain}
+body.focus .main{position:relative !important;z-index:1}
+body.focus .side,body.focus .verdicts,body.focus #case{position:relative !important;z-index:2}
 body.focus .col.show .colhead{flex:0 0 auto !important}
 body.focus #app{overflow:hidden}
 
