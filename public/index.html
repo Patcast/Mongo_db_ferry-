@@ -1416,5 +1416,81 @@ clock(); setInterval(clock, 1000);
 poll();
 setInterval(poll, 2000);
 </script>
+
+<!-- ===== DEMO FOCUS MODE (appended; safe to delete this whole block) ===== -->
+<style>
+#focusbar{position:fixed;top:8px;right:8px;z-index:9999;display:flex;gap:4px;
+  font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;opacity:.55;transition:opacity .15s}
+#focusbar:hover{opacity:1}
+#focusbar button{background:#11161c;color:#8fa3b8;border:1px solid #2a3542;border-radius:3px;
+  padding:5px 8px;cursor:pointer;font:inherit;letter-spacing:.04em}
+#focusbar button.on{background:#1d2b3a;color:#dCE8f5;border-color:#3d5670}
+
+/* one panel at a time */
+body.focus .col{display:none !important}
+body.focus .col.show{display:flex !important}
+body.focus .main{display:block !important}
+body.focus #app{max-width:1180px;margin:0 auto}
+
+/* dials big enough to survive a downscaled video */
+body.focus .dial .num{font-size:4.6rem !important;line-height:1 !important}
+body.focus .dial .band{font-size:1.05rem !important;letter-spacing:.10em !important}
+body.focus .dial-title{font-size:.95rem !important;letter-spacing:.14em !important}
+body.focus .gauge{transform:scale(1.18);transform-origin:center}
+body.focus .dials{padding-bottom:26px !important}
+
+/* readable body copy */
+body.focus .col.show .colbody{font-size:15px !important}
+body.focus .col.show .colhead{font-size:14px !important}
+
+/* the climax has to be unmissable */
+body.focus .just-written,body.focus .isnew,body.focus [data-new="1"]{
+  outline:2px solid #6fe3a8 !important;outline-offset:2px}
+</style>
+<script>
+(function(){
+  var COLS=[['left','1 Documents'],['centre','2 Filing'],['right','3 Risk']];
+  var bar=document.createElement('div');bar.id='focusbar';
+  function col(n){return document.querySelector('.col.'+n);}
+  function show(n){
+    COLS.forEach(function(c){var e=col(c[0]);if(e)e.classList.toggle('show',c[0]===n);});
+    [].forEach.call(bar.querySelectorAll('button[data-col]'),function(b){
+      b.classList.toggle('on',b.dataset.col===n);});
+    try{localStorage.setItem('focusCol',n);}catch(e){}
+  }
+  function all(){
+    COLS.forEach(function(c){var e=col(c[0]);if(e)e.classList.add('show');});
+    [].forEach.call(bar.querySelectorAll('button[data-col]'),function(b){b.classList.remove('on');});
+  }
+  function setFocus(on){
+    document.body.classList.toggle('focus',on);
+    bar.querySelector('#fOn').classList.toggle('on',on);
+    try{localStorage.setItem('focusOn',on?'1':'0');}catch(e){}
+    if(on) show(localStorage.getItem('focusCol')||'centre'); else all();
+  }
+  COLS.forEach(function(c){
+    var b=document.createElement('button');b.textContent=c[1];b.dataset.col=c[0];
+    b.onclick=function(){document.body.classList.add('focus');show(c[0]);};bar.appendChild(b);
+  });
+  var a=document.createElement('button');a.textContent='0 All';a.onclick=function(){setFocus(false);};
+  bar.appendChild(a);
+  var f=document.createElement('button');f.id='fOn';f.textContent='Focus';
+  f.onclick=function(){setFocus(!document.body.classList.contains('focus'));};bar.appendChild(f);
+  document.body.appendChild(bar);
+
+  document.addEventListener('keydown',function(e){
+    if(/^(INPUT|TEXTAREA|SELECT)$/.test((e.target||{}).tagName||''))return;
+    if(e.key==='1'){document.body.classList.add('focus');show('left');}
+    else if(e.key==='2'){document.body.classList.add('focus');show('centre');}
+    else if(e.key==='3'){document.body.classList.add('focus');show('right');}
+    else if(e.key==='0'){setFocus(false);}
+    else if(e.key==='f'||e.key==='F'){setFocus(!document.body.classList.contains('focus'));}
+  });
+
+  var on=localStorage.getItem('focusOn');
+  setFocus(on===null?true:on==='1');   // default ON for the demo
+})();
+</script>
+
 </body>
 </html>
