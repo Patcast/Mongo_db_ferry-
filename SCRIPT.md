@@ -33,10 +33,10 @@ running long, cut the second sentence of beat 4, not the first.
 **DO** — click `kbo_uittreksel...pdf`, then `vandamme_eid_specimen.jpg`. Pause on the eID so
 the drafted email is visible.
 
-> **SAY:** "The company registration lands and the filing form fills itself in. Then the
-> director's eID — **expired, two thousand twenty four**, and watermarked SPECIMEN. The agent
-> doesn't just flag it. It opens a case and drafts the client email, naming that document and
-> that date."
+> **SAY:** "The company registration lands and the filing form fills itself in — that's the
+> document model, one collection per artifact. Then the director's eID — **expired, two
+> thousand twenty four**, watermarked SPECIMEN. The agent doesn't just flag it. It opens a
+> case and drafts the client email, naming that document and that date."
 
 **ON SCREEN:** confidence 26% → 39%, risk 0.060 → 0.143, the drafted email bottom-left.
 
@@ -48,9 +48,10 @@ the drafted email is visible.
 **Skip the annual accounts.**
 
 > **SAY:** "The utility bill disagrees with the registered seat — same street, different
-> number, one in Dutch and one in French. That's the check a junior does by eye across twelve
-> PDFs. Then the UBO extract, and `$graphLookup` walks the ownership two hops into a cluster
-> sharing one bank account. Risk: **0.49, medium.**"
+> number, one in Dutch and one in French — one aggregation pipeline across every document on
+> file. That's the check a junior does by eye across twelve PDFs. Then the UBO extract, and
+> **`$graphLookup`** walks the ownership two hops into a cluster sharing one bank account.
+> Risk: **0.49, medium.**"
 
 **ON SCREEN:** address field amber with both values, graph path, **0.493 MEDIUM**, 13 of 23.
 
@@ -62,9 +63,10 @@ the drafted email is visible.
 finish animating before you speak the number.
 
 > **SAY:** "Now a colleague writes one verdict about a past case — one line of reasoning, into
-> one collection. Re-score. **0.72 — high.** The breakdown names him, quotes him, and dates it
-> seconds ago. Automated embedding and hybrid search found his judgment; his judgment moved
-> the number. No retraining. No restart. One insert into one collection."
+> one collection. Re-score. **0.72 — high.** Atlas embedded his reasoning itself — `autoEmbed`
+> with `voyage-4` — and **`$rankFusion`** blended vector search with Atlas Search to find it.
+> The breakdown names him, quotes him, dates it seconds ago. Retrieval found his judgment; his
+> judgment moved the number. No retraining. No restart. One insert into one collection."
 
 **ON SCREEN:** risk 0.493 → **0.722 HIGH**, precedent 0.24 → 0.90, "WRITTEN SECONDS AGO"
 badge on M. Dubois.
@@ -81,8 +83,18 @@ badge on M. Dubois.
 
 # Tech callouts
 
-If you want the MongoDB story louder, these are the honest swaps. Each costs 2–3 seconds, so
-you can afford **one**, not all four.
+**The MongoDB feature is now named on screen as each beat happens** — the bottom-left ticker
+updates itself and reads the *live* retrieval rung from the score payload. You do not have to
+say any of it, and you must not save it for the close.
+
+The phrases above are already woven into the narration. If a take runs long, these are the
+first words to cut, in this order: "one collection per artifact", "one aggregation pipeline
+across every document on file", then the `autoEmbed` clause. Keep `$graphLookup` and
+`$rankFusion` — they are the two that matter.
+
+**Watch the ticker on the keeper take.** If it reads *"in-process TF-IDF — Atlas unavailable"*,
+Voyage has rate-limited you: stop, wait 30 seconds, Re-score, and check it again before you
+speak the `$rankFusion` line.
 
 | Beat | Swap in |
 |---|---|
