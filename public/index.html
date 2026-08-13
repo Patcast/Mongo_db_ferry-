@@ -1453,6 +1453,12 @@ body.focus .side,body.focus .verdicts,body.focus #case{position:relative !import
 body.focus .col.show .colhead{flex:0 0 auto !important}
 body.focus #app{overflow:hidden}
 
+/* the 23-field filing grid is the specific thing that overruns — cap and scroll it directly */
+body.focus #formBody{max-height:42vh !important;overflow-y:auto !important;
+  overscroll-behavior:contain;display:block !important}
+body.focus .col.centre.show{max-height:56vh !important;overflow:hidden !important}
+body.focus .col.centre.show .colbody{max-height:50vh !important;overflow-y:auto !important}
+
 /* readable body copy */
 body.focus .col.show .colbody{font-size:15px !important}
 body.focus .col.show .colhead{font-size:14px !important}
