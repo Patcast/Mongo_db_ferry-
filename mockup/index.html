@@ -1,0 +1,1474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger Memory — Client Onboarding</title>
+<style>
+/* ============================================================
+   LEDGER MEMORY — static visual mockup. All data is hardcoded.
+   No backend, no network, no MongoDB. Single file, offline.
+   ============================================================ */
+
+:root{
+  --bg:        #0a0d11;
+  --panel:     #11161c;
+  --panel-2:   #151b23;
+  --panel-3:   #1b222c;
+  --line:      #232c38;
+  --line-soft: #1a212a;
+  --text:      #d9e0e9;
+  --text-2:    #96a2b1;
+  --text-3:    #64707e;
+  --green:     #3ecf8e;
+  --green-d:   #1c7d55;
+  --red:       #ef5350;
+  --red-d:     #a02c2c;
+  --amber:     #e9a33a;
+  --amber-d:   #9d6a12;
+  --blue:      #58a6ff;
+  --violet:    #a78bfa;
+  --paper:     #f4f2ec;
+  --ink:       #171b21;
+
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:var(--sans); font-size:13px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:#0d1116}
+::-webkit-scrollbar-thumb{background:#2a3441}
+::-webkit-scrollbar-thumb:hover{background:#3a4655}
+
+.mono{font-family:var(--mono)}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ---------- app shell ---------- */
+#app{
+  height:100vh; display:grid;
+  grid-template-rows: 46px 176px minmax(0,1fr) 148px;
+}
+
+/* ---------- top chrome ---------- */
+.chrome{
+  display:flex; align-items:center; gap:18px;
+  padding:0 16px; border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#141a21,#0f141a);
+}
+.brand{display:flex; align-items:baseline; gap:9px}
+.brand .mark{
+  font:700 14px/1 var(--mono); letter-spacing:.14em;
+  color:var(--green); text-transform:uppercase;
+}
+.brand .sub{font:400 10.5px/1 var(--mono); color:var(--text-3); letter-spacing:.12em; text-transform:uppercase}
+.chrome .client{display:flex; align-items:center; gap:10px; padding-left:18px; border-left:1px solid var(--line)}
+.chrome .client .nm{font-weight:650; font-size:13.5px}
+.chrome .client .id{font:400 11px/1 var(--mono); color:var(--text-3)}
+.chrome .spacer{flex:1}
+.chrome .ops{display:flex; gap:6px; align-items:center}
+.opbadge{
+  font:500 10px/1 var(--mono); letter-spacing:.04em; color:var(--text-3);
+  border:1px solid var(--line); padding:4px 6px; border-radius:2px; background:#0e1319;
+  transition:color .3s, border-color .3s, background .3s;
+}
+.opbadge.hot{color:var(--green); border-color:#1e5d43; background:#0d1f18}
+.chrome .clock{font:500 11px/1 var(--mono); color:var(--text-3); letter-spacing:.06em}
+
+/* ---------- dials row ---------- */
+.dials{
+  display:grid; grid-template-columns: 1fr 1fr minmax(300px, 1.45fr);
+  border-bottom:1px solid var(--line); background:var(--panel);
+}
+.dial{display:flex; align-items:center; gap:20px; padding:14px 22px; border-right:1px solid var(--line)}
+.gauge{position:relative; width:140px; height:140px; flex:0 0 140px}
+.gauge svg{position:absolute; inset:0; width:140px; height:140px}
+.gauge .track{fill:none; stroke:#1d242e; stroke-width:13; stroke-linecap:butt}
+.gauge .prog{
+  fill:none; stroke-width:13; stroke-linecap:butt;
+  transition:stroke-dashoffset 900ms cubic-bezier(.22,.9,.28,1), stroke 600ms ease;
+}
+.gauge .readout{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; padding-bottom:6px;
+}
+.gauge .num{
+  font-family:var(--mono); font-weight:700; letter-spacing:-.03em;
+  font-size:46px; line-height:.92; font-variant-numeric:tabular-nums;
+  transition:color 500ms ease;
+}
+.gauge .num .pct{font-size:22px; font-weight:600; opacity:.6; margin-left:1px}
+.gauge .band{
+  margin-top:7px; font:700 10px/1 var(--mono); letter-spacing:.18em;
+  padding:3px 7px; border-radius:2px; transition:all 500ms ease;
+}
+.dial-meta{min-width:0; flex:1}
+.dial-title{
+  font:700 12.5px/1 var(--sans); letter-spacing:.19em; text-transform:uppercase;
+  color:var(--text); margin-bottom:3px;
+}
+.dial-desc{font-size:11.5px; color:var(--text-3); margin-bottom:11px}
+.spark-wrap{border-top:1px solid var(--line-soft); padding-top:9px}
+.spark-lbl{
+  display:flex; justify-content:space-between; align-items:baseline;
+  font:500 9.5px/1 var(--mono); letter-spacing:.11em; text-transform:uppercase;
+  color:var(--text-3); margin-bottom:5px;
+}
+.spark{display:block; width:100%; height:34px; overflow:visible}
+.spark .sline{fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
+.spark .sfill{opacity:.13}
+.spark .sdot{stroke:var(--panel); stroke-width:2}
+.spark .sgrid{stroke:#1b222b; stroke-width:1; stroke-dasharray:2 3}
+.delta{font:700 10px/1 var(--mono)}
+
+.beatcell{padding:13px 18px; display:flex; flex-direction:column; gap:8px; min-width:0}
+.beat-top{display:flex; align-items:center; gap:9px}
+.beat-idx{
+  font:700 10px/1 var(--mono); letter-spacing:.14em; color:#0a0d11;
+  background:var(--text-2); padding:4px 6px; border-radius:2px;
+}
+.beat-title{font:650 13px/1.2 var(--sans)}
+.beat-body{font-size:12px; color:var(--text-2); line-height:1.5}
+.beat-body em{color:var(--text); font-style:normal; font-weight:600}
+.composite{
+  margin-top:auto; border-top:1px solid var(--line-soft); padding-top:8px;
+  font:500 10.5px/1.6 var(--mono); color:var(--text-3);
+}
+.composite b{color:var(--text-2); font-weight:600}
+
+/* ---------- main 3-col ---------- */
+.main{display:grid; grid-template-columns: 318px minmax(0,1fr) 404px; min-height:0; border-bottom:1px solid var(--line)}
+.col{min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden}
+.col.left{border-right:1px solid var(--line); background:var(--panel)}
+.col.right{border-left:1px solid var(--line); background:var(--panel)}
+.col.centre{background:#0d1116}
+.colhead{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:9px 13px; border-bottom:1px solid var(--line); background:var(--panel-2);
+  font:700 10.5px/1 var(--mono); letter-spacing:.15em; text-transform:uppercase; color:var(--text-2);
+  flex:0 0 auto;
+}
+.colhead .cnt{color:var(--text-3); font-weight:500; letter-spacing:.06em}
+.colbody{overflow-y:auto; overflow-x:hidden; flex:1; min-height:0}
+
+/* ---------- LEFT ---------- */
+.dropzone{
+  margin:12px; padding:20px 14px; border:1.5px dashed #2e3a48; border-radius:3px;
+  text-align:center; background:#0e1319; transition:all .25s ease; position:relative; overflow:hidden;
+}
+.dropzone.armed{border-color:var(--green-d); background:#0d1a16}
+.dz-icon{font:400 22px/1 var(--mono); color:var(--text-3); margin-bottom:8px}
+.dz-t{font:650 12px/1.3 var(--sans); color:var(--text-2)}
+.dz-s{font:400 10.5px/1.5 var(--mono); color:var(--text-3); margin-top:5px}
+.dz-flash{position:absolute; inset:0; background:var(--green); opacity:0; pointer-events:none}
+.dropzone.hit .dz-flash{animation:dzflash 700ms ease-out}
+@keyframes dzflash{0%{opacity:.22}100%{opacity:0}}
+
+.doclist{padding:0 12px 12px}
+.doc{
+  border:1px solid var(--line); border-left:2px solid var(--line-soft);
+  background:var(--panel-2); padding:9px 10px; margin-bottom:7px; border-radius:2px; display:none;
+}
+.doc.on{display:block; animation:docin 520ms cubic-bezier(.2,.9,.3,1)}
+@keyframes docin{
+  0%{opacity:0; transform:translateY(-9px) scale(.985); background:#17251e}
+  60%{background:#17251e}
+  100%{opacity:1; transform:none; background:var(--panel-2)}
+}
+.doc.st-valid{border-left-color:var(--green-d)}
+.doc.st-expired{border-left-color:var(--red-d)}
+.doc.st-stale{border-left-color:var(--amber-d)}
+.doc.st-conflict{border-left-color:var(--amber-d)}
+.doc-r1{display:flex; align-items:flex-start; justify-content:space-between; gap:8px}
+.doc-fn{font:500 11px/1.35 var(--mono); word-break:break-all; color:var(--text)}
+.chip{
+  flex:0 0 auto; font:700 9px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase;
+  padding:4px 6px; border-radius:2px; border:1px solid;
+}
+.chip.valid{color:var(--green); border-color:#1d5f44; background:#0e1f18}
+.chip.expired{color:var(--red); border-color:#6d2626; background:#211113}
+.chip.stale{color:var(--amber); border-color:#6b4a12; background:#211a0d}
+.chip.conflict{color:var(--amber); border-color:#6b4a12; background:#211a0d}
+.doc-r2{
+  display:flex; justify-content:space-between; gap:8px; margin-top:6px;
+  font:400 10px/1.4 var(--mono); color:var(--text-3);
+}
+.doc-note{
+  margin-top:6px; padding-top:6px; border-top:1px dotted #29323d;
+  font:400 10.5px/1.45 var(--sans); color:var(--text-2);
+}
+.doc-note b{color:var(--amber); font-weight:600}
+.doc-note b.bad{color:var(--red)}
+.doclist .empty{text-align:center; padding:22px 10px; color:var(--text-3); font:400 11px/1.6 var(--mono)}
+
+.case{margin:0 12px 12px; border:1px solid var(--line); border-radius:2px; background:var(--panel-2); display:none}
+.case.on{display:block}
+.case-h{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:7px 10px; background:#1a1508; border-bottom:1px solid #33290f;
+  font:700 9.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--amber);
+}
+.case-h .due{color:var(--text-3); letter-spacing:.06em; font-weight:500}
+.case-b{padding:9px 10px}
+.case-lbl{font:500 9.5px/1 var(--mono); letter-spacing:.13em; text-transform:uppercase; color:var(--text-3); margin-bottom:4px}
+.case-mail{
+  font:400 10.5px/1.55 var(--mono); color:var(--text-2); background:#0d1218;
+  border:1px solid var(--line-soft); border-radius:2px; padding:8px; white-space:pre-wrap;
+  max-height:112px; overflow-y:auto;
+}
+.case-sim{display:flex; gap:6px; margin-top:8px}
+.case-sim input{
+  flex:1; background:#0d1218; border:1px solid var(--line); color:var(--text);
+  font:400 10.5px/1 var(--mono); padding:7px 8px; border-radius:2px; min-width:0;
+}
+.case-sim input::placeholder{color:#4d5763}
+.case-sim button{
+  border:1px solid var(--line); background:var(--panel-3); color:var(--text-2);
+  font:600 9.5px/1 var(--mono); letter-spacing:.09em; text-transform:uppercase; padding:0 9px; border-radius:2px;
+}
+.case-sim button:hover{border-color:#3b4757; color:var(--text)}
+
+/* ---------- CENTRE: government form ---------- */
+.formwrap{padding:14px 16px 20px; display:flex; justify-content:center}
+.paper{
+  width:100%; max-width:760px; background:var(--paper); color:var(--ink);
+  border:1px solid #0a0d11; border-radius:2px;
+  box-shadow:0 0 0 1px #2a323d, 0 14px 40px rgba(0,0,0,.6);
+}
+.paper-top{
+  padding:13px 18px 11px; border-bottom:2px solid #232830;
+  display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+  background:linear-gradient(180deg,#faf8f3,#efece4);
+}
+.pt-l{min-width:0}
+.pt-org{font:700 9px/1.35 var(--sans); letter-spacing:.2em; text-transform:uppercase; color:#5a6470}
+.pt-title{font:700 16.5px/1.2 var(--sans); margin-top:5px; color:#12161b}
+.pt-sub{font:500 10px/1.3 var(--mono); color:#6d7783; margin-top:4px}
+.pt-r{flex:0 0 auto; text-align:right}
+.pt-form{font:700 10px/1.3 var(--mono); letter-spacing:.1em; color:#3b444f}
+.pt-stamp{
+  margin-top:6px; display:inline-block; border:2px solid #b4342f; color:#b4342f;
+  font:800 10px/1 var(--mono); letter-spacing:.13em; padding:5px 8px; border-radius:2px;
+  transform:rotate(-3.5deg); opacity:.85;
+}
+.pt-stamp.ok{border-color:#1c7d55; color:#1c7d55}
+
+.tally{padding:11px 18px; background:#e6e2d8; border-bottom:1px solid #cdc7ba; display:flex; align-items:center; gap:16px}
+.tally-num{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:26px; font-weight:700; color:#171b21; white-space:nowrap}
+.tally-num .big{font-size:34px}
+.tally-num .of{color:#7a8390; font-weight:500}
+.tally-txt{font:600 12px/1.35 var(--sans); color:#3d454f}
+.tally-txt .blk{color:#b4342f; font-weight:750}
+.tally-txt .blk.zero{color:#1c7d55}
+.tally-bar{flex:1; min-width:80px; height:9px; background:#cfcabd; overflow:hidden; display:flex}
+.tally-bar i{display:block; height:100%; transition:width 900ms cubic-bezier(.22,.9,.28,1)}
+.tally-bar i.g{background:#2f8f5f}
+.tally-bar i.a{background:#c9871f}
+
+.paper-body{padding:12px 18px 18px}
+.sect{margin-top:12px}
+.sect:first-child{margin-top:2px}
+.sect-h{display:flex; align-items:center; gap:8px; margin-bottom:7px; border-bottom:1px solid #cdc7ba; padding-bottom:4px}
+.sect-h .ltr{
+  font:700 9.5px/1 var(--mono); color:#fff; background:#3d454f;
+  width:16px; height:16px; display:grid; place-items:center; border-radius:2px;
+}
+.sect-h .nm{font:700 10px/1 var(--sans); letter-spacing:.16em; text-transform:uppercase; color:#3d454f}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.f{grid-column:span 1}
+.f.wide{grid-column:span 2}
+
+.fld{
+  border:1px solid; border-left-width:3px; border-radius:2px; padding:5px 8px 6px;
+  background:#fff; position:relative; transition:background .45s ease, border-color .45s ease;
+}
+.fld .lbl{
+  font:600 8.7px/1.25 var(--sans); letter-spacing:.13em; text-transform:uppercase;
+  color:#6d7783; display:flex; align-items:center; gap:5px;
+}
+.fld .lbl .req{color:#b4342f; font-weight:800}
+.fld .val{font:600 12.5px/1.35 var(--mono); color:var(--ink); margin-top:3px; word-break:break-word}
+.fld .src{font:400 8.7px/1.3 var(--mono); color:#8b939e; margin-top:3px; word-break:break-all}
+.fld .tag{position:absolute; top:5px; right:6px; font:800 8px/1 var(--mono); letter-spacing:.1em; padding:3px 4px; border-radius:2px}
+
+.fld.s-unresolved{border-color:#d9a5a2; border-left-color:#b4342f; background:#fbf0ef}
+.fld.s-unresolved .val{color:#b4342f; letter-spacing:.14em}
+.fld.s-resolved{border-color:#a8ceb8; border-left-color:#2f8f5f; background:#f0f8f2}
+.fld.s-resolved .val{color:#12341f}
+.fld.s-rejected{border-color:#d9a5a2; border-left-color:#b4342f; background:#fbf0ef}
+.fld.s-rejected .val{color:#8a2f2b; text-decoration:line-through; text-decoration-color:#c98b88}
+.fld.s-rejected .tag{background:#b4342f; color:#fff}
+.fld.s-conflict{border-color:#dcbc83; border-left-color:#c9871f; background:#fdf6e7}
+.fld.s-conflict .tag{background:#c9871f; color:#fff}
+
+.conf2{display:grid; grid-template-columns:1fr auto 1fr; gap:7px; align-items:stretch; margin-top:4px}
+.conf2 .side{background:#fff; border:1px solid #e0d8c4; border-radius:2px; padding:5px 7px; min-width:0}
+.conf2 .side .k{font:700 8.2px/1 var(--mono); letter-spacing:.12em; color:#9a7626; text-transform:uppercase}
+.conf2 .side .v{font:650 12px/1.3 var(--mono); color:#5c4310; margin-top:3px; word-break:break-word}
+.conf2 .side .fn{font:400 8.5px/1.3 var(--mono); color:#9a8f75; margin-top:3px; word-break:break-all}
+.conf2 .vs{display:grid; place-items:center; font:800 9px/1 var(--mono); color:#c9871f}
+
+.fld.flip{animation:flip 900ms cubic-bezier(.2,.9,.3,1)}
+@keyframes flip{
+  0%{transform:scale(1); box-shadow:0 0 0 0 rgba(47,143,95,0)}
+  18%{transform:scale(1.028); box-shadow:0 0 0 4px rgba(47,143,95,.28)}
+  100%{transform:scale(1); box-shadow:0 0 0 0 rgba(47,143,95,0)}
+}
+.fld.s-conflict.flip{animation:flipA 900ms cubic-bezier(.2,.9,.3,1)}
+@keyframes flipA{
+  0%{transform:scale(1); box-shadow:0 0 0 0 rgba(201,135,31,0)}
+  18%{transform:scale(1.028); box-shadow:0 0 0 4px rgba(201,135,31,.34)}
+  100%{transform:scale(1); box-shadow:0 0 0 0 rgba(201,135,31,0)}
+}
+.fld.s-rejected.flip{animation:flipR 900ms cubic-bezier(.2,.9,.3,1)}
+@keyframes flipR{
+  0%{transform:scale(1); box-shadow:0 0 0 0 rgba(180,52,47,0)}
+  18%{transform:scale(1.028); box-shadow:0 0 0 4px rgba(180,52,47,.3)}
+  100%{transform:scale(1); box-shadow:0 0 0 0 rgba(180,52,47,0)}
+}
+
+.paper-foot{
+  border-top:1px solid #cdc7ba; margin-top:14px; padding-top:9px;
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  font:400 9px/1.4 var(--mono); color:#8b939e;
+}
+.sigbox{border-bottom:1px solid #9aa2ad; width:150px; height:20px}
+
+/* ---------- RIGHT ---------- */
+.bars{padding:8px 0 4px}
+.bar{border-bottom:1px solid var(--line-soft)}
+.bar-h{display:grid; grid-template-columns:12px 1fr auto; gap:9px; align-items:center; padding:9px 13px 8px; cursor:pointer; transition:background .15s}
+.bar-h:hover{background:var(--panel-2)}
+.bar-caret{font:400 9px/1 var(--mono); color:var(--text-3); transition:transform .22s ease}
+.bar.open .bar-caret{transform:rotate(90deg)}
+.bar-name{display:flex; align-items:baseline; gap:8px; min-width:0}
+.bar-name .n{font:650 12.5px/1 var(--sans); letter-spacing:.03em; text-transform:capitalize}
+.bar-name .w{font:500 9.5px/1 var(--mono); color:var(--text-3)}
+.bar-name .star{color:var(--amber); font-size:10px}
+.bar-num{font:700 17px/1 var(--mono); font-variant-numeric:tabular-nums; transition:color .5s ease}
+.bar-track{height:9px; margin:0 13px 9px; background:#1a212a; overflow:hidden; position:relative}
+.bar-fill{height:100%; width:0; transition:width 950ms cubic-bezier(.22,.9,.28,1), background 500ms ease}
+.bar-ticks{position:absolute; inset:0; pointer-events:none}
+.bar-ticks i{position:absolute; top:0; bottom:0; width:1px; background:#0d1116}
+.bar-meta{display:flex; justify-content:space-between; gap:8px; padding:0 13px 9px; font:400 10px/1.35 var(--mono); color:var(--text-3)}
+.bar-meta .op{color:var(--blue); opacity:.75}
+.bar.fired .bar-h{background:#171208}
+.bar.fired .bar-name .n{color:#fff}
+
+.ev{display:none; padding:0 13px 12px; background:#0d1116; border-top:1px solid var(--line-soft)}
+.bar.open .ev{display:block; animation:evin 300ms ease}
+@keyframes evin{from{opacity:0; transform:translateY(-5px)}to{opacity:1; transform:none}}
+.ev-h{font:600 9.5px/1 var(--mono); letter-spacing:.13em; text-transform:uppercase; color:var(--text-3); padding:10px 0 7px}
+
+.cite{border:1px solid var(--line); border-left:2px solid #2e3a48; background:var(--panel-2); border-radius:2px; padding:8px 9px; margin-bottom:7px}
+.cite.hi{border-left-color:var(--red)}
+.cite.med{border-left-color:var(--amber)}
+.cite.low{border-left-color:var(--green-d)}
+.cite.fresh{border-color:#3d6a52; background:#101d17; animation:freshpulse 2.4s ease-out}
+@keyframes freshpulse{
+  0%{box-shadow:0 0 0 0 rgba(62,207,142,.55); background:#14301f}
+  40%{box-shadow:0 0 0 7px rgba(62,207,142,0)}
+  100%{box-shadow:0 0 0 0 rgba(62,207,142,0); background:#101d17}
+}
+.cite-r1{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px}
+.cite-who{display:flex; align-items:center; gap:7px; min-width:0}
+.cite-who .av{
+  width:19px; height:19px; flex:0 0 19px; border-radius:2px; background:var(--panel-3);
+  display:grid; place-items:center; font:700 8.5px/1 var(--mono); color:var(--text-2); border:1px solid var(--line);
+}
+.cite-who .nm{font:650 11.5px/1 var(--sans)}
+.cite-who .dt{font:400 10px/1 var(--mono); color:var(--text-3)}
+.cite-who .dt.now{color:var(--green); font-weight:600}
+.cite-r1 .rr{display:flex; align-items:center; gap:6px; flex:0 0 auto}
+.dec{font:800 8.5px/1 var(--mono); letter-spacing:.12em; padding:4px 5px; border-radius:2px; border:1px solid}
+.dec.HIGH{color:var(--red); border-color:#6d2626; background:#1e1113}
+.dec.MEDIUM{color:var(--amber); border-color:#6b4a12; background:#1e180d}
+.dec.LOW{color:var(--green); border-color:#1d5f44; background:#0e1f18}
+.rel{font:600 9.5px/1 var(--mono); color:var(--text-3)}
+.cite-q{font:500 10.5px/1.4 var(--sans); color:var(--text-2); margin-bottom:5px}
+.cite-rat{font:400 11px/1.5 var(--sans); color:var(--text); border-left:2px solid #2e3a48; padding-left:8px; font-style:italic}
+.cite.fresh .cite-rat{border-left-color:var(--green); color:#eaf3ec}
+.newtag{font:800 8px/1 var(--mono); letter-spacing:.13em; color:#08120d; background:var(--green); padding:3px 4px; border-radius:2px}
+
+.conflict{border:1px solid #4a3a14; border-radius:2px; background:#15120a; padding:9px; margin-bottom:8px}
+.conflict .cf{font:700 10px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--amber); margin-bottom:7px}
+.cf-pair{display:grid; grid-template-columns:1fr 1fr; gap:7px}
+.cf-side{background:#0e1116; border:1px solid var(--line); border-radius:2px; padding:7px}
+.cf-side .k{font:600 8.5px/1 var(--mono); letter-spacing:.11em; text-transform:uppercase; color:var(--text-3)}
+.cf-side .v{font:650 12px/1.35 var(--mono); color:#f0d9a8; margin-top:4px; word-break:break-word}
+.cf-side .fn{font:400 9px/1.3 var(--mono); color:var(--text-3); margin-top:5px; word-break:break-all}
+.cf-note{margin-top:8px; font:400 10.5px/1.5 var(--sans); color:var(--text-2); border-top:1px dotted #3a3115; padding-top:7px}
+.cf-note b{color:var(--amber); font-weight:600}
+.cf-ok{border-color:#1d4a38; background:#0c1512}
+.cf-ok .cf{color:var(--green)}
+
+.find{
+  display:grid; grid-template-columns:auto 1fr; gap:9px; align-items:start;
+  border:1px solid var(--line); border-radius:2px; background:var(--panel-2); padding:8px 9px; margin-bottom:7px;
+}
+.find .sev{font:800 8px/1 var(--mono); letter-spacing:.1em; padding:4px 5px; border-radius:2px; margin-top:1px}
+.find .sev.hi{background:#3a1517; color:var(--red); border:1px solid #6d2626}
+.find .sev.md{background:#241c0b; color:var(--amber); border:1px solid #6b4a12}
+.find .t{font:600 11.5px/1.35 var(--sans); color:var(--text)}
+.find .d{font:400 10px/1.45 var(--mono); color:var(--text-3); margin-top:3px; word-break:break-all}
+
+.gpath{border:1px solid var(--line); border-radius:2px; background:#0e1116; padding:10px 9px}
+.node{display:grid; grid-template-columns:22px 1fr; gap:9px; align-items:center; padding:6px 7px; border:1px solid var(--line); border-radius:2px; background:var(--panel-2)}
+.node.flag{border-color:#6d2626; background:#1b1013}
+.node.self{border-color:#2b4a6b; background:#0f1720}
+.node .hop{font:700 9px/1 var(--mono); color:var(--text-3); text-align:center; border:1px solid var(--line); border-radius:2px; padding:4px 0}
+.node .nm{font:650 11.5px/1.25 var(--sans)}
+.node .sub{font:400 9.5px/1.3 var(--mono); color:var(--text-3); margin-top:2px; word-break:break-all}
+.edge{margin:0 0 0 10px; padding:3px 0 3px 14px; border-left:2px solid #2e3a48; font:500 9.5px/1.5 var(--mono); color:var(--text-3)}
+.edge b{color:var(--blue); font-weight:600}
+.gp-note{margin-top:9px; padding-top:8px; border-top:1px dotted #29323d; font:400 10.5px/1.5 var(--sans); color:var(--text-2)}
+.gp-note b{color:var(--red); font-weight:600}
+
+.misslist{display:flex; flex-wrap:wrap; gap:5px}
+.miss{font:500 10px/1 var(--mono); border:1px solid #5a2a2a; background:#1c1113; color:#e08b88; padding:5px 6px; border-radius:2px}
+.miss.amb{border-color:#5c4212; background:#1c1709; color:#e0b96e}
+.ev-none{font:400 11px/1.5 var(--mono); color:var(--text-3); padding:4px 0 8px}
+
+/* ---------- BOTTOM ---------- */
+.footer{display:grid; grid-template-columns: 1fr 470px; min-height:0; background:var(--panel)}
+.foot-l{padding:11px 14px; display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line)}
+.foot-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px}
+.foot-title{font:700 10.5px/1 var(--mono); letter-spacing:.15em; text-transform:uppercase; color:var(--text-2)}
+.foot-title .dt{color:var(--violet); letter-spacing:.06em}
+.foot-sub{font:400 10px/1 var(--mono); color:var(--text-3)}
+textarea#rationale{
+  flex:1; min-height:0; resize:none; background:#0d1218; border:1px solid var(--line);
+  color:var(--text); font:400 12px/1.55 var(--sans); padding:9px 10px; border-radius:2px;
+}
+textarea#rationale:focus{outline:none; border-color:#3b4757}
+textarea#rationale::placeholder{color:#4d5763}
+
+.foot-r{padding:11px 14px; display:flex; flex-direction:column; gap:9px; min-width:0}
+.pending{
+  display:none; align-items:center; gap:9px; padding:7px 9px; border-radius:2px;
+  border:1px solid #3d6a52; background:#101d17; animation:pendpulse 2.2s ease-in-out infinite;
+}
+.pending.on{display:flex}
+@keyframes pendpulse{0%,100%{border-color:#2c5140}50%{border-color:#4f9a74}}
+.pending .dot{width:7px; height:7px; border-radius:50%; background:var(--green); flex:0 0 7px}
+.pending .tx{font:600 11px/1.3 var(--sans); color:#bfe6d1}
+.pending .tx small{display:block; font:400 9.5px/1.3 var(--mono); color:#7fae95; margin-top:2px}
+
+.verdicts{display:flex; gap:7px}
+.vbtn{flex:1; border:1px solid var(--line); background:var(--panel-2); border-radius:2px; padding:9px 6px; text-align:center; transition:all .16s ease}
+.vbtn .l{font:800 11px/1 var(--mono); letter-spacing:.12em}
+.vbtn .s{font:400 9px/1 var(--mono); color:var(--text-3); margin-top:4px}
+.vbtn.low .l{color:var(--green)}
+.vbtn.med .l{color:var(--amber)}
+.vbtn.high .l{color:var(--red)}
+.vbtn:hover{background:var(--panel-3); border-color:#3b4757}
+.vbtn.high{border-color:#4a2020}
+.vbtn.high:hover{background:#241214; border-color:var(--red-d)}
+.vbtn.sel{box-shadow:inset 0 0 0 1px currentColor}
+
+.actions{display:flex; gap:8px; margin-top:auto}
+.rescore{
+  flex:1; border:1px solid var(--green-d); background:#0f2018; color:var(--green);
+  font:800 12px/1 var(--mono); letter-spacing:.16em; padding:12px; border-radius:2px;
+  display:flex; align-items:center; justify-content:center; gap:9px; transition:all .18s ease;
+}
+.rescore:hover{background:#143026; border-color:var(--green)}
+.rescore.ready{animation:rsp 1.5s ease-in-out infinite}
+@keyframes rsp{
+  0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0); background:#0f2018}
+  50%{box-shadow:0 0 0 5px rgba(62,207,142,.14); background:#153327}
+}
+.rescore .spin{display:none; width:11px; height:11px; border:2px solid rgba(62,207,142,.25); border-top-color:var(--green); border-radius:50%}
+.rescore.busy .spin{display:block; animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ghost{border:1px solid var(--line); background:var(--panel-2); color:var(--text-3); font:600 10px/1 var(--mono); letter-spacing:.1em; padding:0 12px; border-radius:2px}
+.ghost:hover{color:var(--text); border-color:#3b4757}
+
+/* ---------- demo control bar ---------- */
+.ctl{
+  position:fixed; top:8px; right:12px; z-index:60;
+  display:flex; align-items:center; gap:6px;
+  background:rgba(12,16,21,.94); border:1px solid #2c3644; border-radius:3px;
+  padding:5px 6px; backdrop-filter:blur(6px); box-shadow:0 6px 22px rgba(0,0,0,.55);
+}
+.ctl .lbl{font:700 9px/1 var(--mono); letter-spacing:.15em; text-transform:uppercase; color:var(--text-3); padding:0 4px 0 2px}
+.ctl .nav{border:1px solid var(--line); background:#161d25; color:var(--text-2); font:700 11px/1 var(--mono); width:26px; height:24px; border-radius:2px}
+.ctl .nav:hover:not(:disabled){background:var(--panel-3); color:var(--text)}
+.ctl .nav:disabled{opacity:.3; cursor:not-allowed}
+.ctl .pips{display:flex; gap:3px}
+.pip{width:24px; height:24px; border:1px solid var(--line); background:#161d25; color:var(--text-3); font:700 10.5px/1 var(--mono); border-radius:2px; transition:all .15s}
+.pip:hover{color:var(--text); border-color:#3b4757}
+.pip.on{background:var(--green); color:#08120d; border-color:var(--green)}
+.ctl .kb{font:400 9px/1 var(--mono); color:#49535f; padding:0 3px}
+
+.toast{
+  position:fixed; left:50%; bottom:170px; transform:translate(-50%, 16px);
+  z-index:70; opacity:0; pointer-events:none;
+  background:#0d1a14; border:1px solid #2f7a58; border-left:3px solid var(--green);
+  border-radius:2px; padding:10px 14px; box-shadow:0 10px 34px rgba(0,0,0,.6);
+  transition:opacity .28s ease, transform .28s ease; max-width:660px;
+}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+.toast .t1{font:700 10px/1 var(--mono); letter-spacing:.13em; text-transform:uppercase; color:var(--green)}
+.toast .t2{font:500 12px/1.4 var(--sans); color:#dceee4; margin-top:5px}
+.toast .t2 code{font-family:var(--mono); font-size:11.5px; color:#8fe0b8}
+
+@media (max-width:1500px){
+  .main{grid-template-columns:290px minmax(0,1fr) 372px}
+  .footer{grid-template-columns:1fr 420px}
+}
+</style>
+</head>
+<body>
+
+<div class="ctl">
+  <span class="lbl">Demo</span>
+  <button class="nav" id="prev" title="Previous state">&#9664;</button>
+  <div class="pips" id="pips"></div>
+  <button class="nav" id="next" title="Next state">&#9654;</button>
+  <span class="kb">&larr;/&rarr; &middot; 0-5 &middot; R</span>
+</div>
+
+<div class="toast" id="toast">
+  <div class="t1" id="toastT1">verdicts &middot; insertOne</div>
+  <div class="t2" id="toastT2"></div>
+</div>
+
+<div id="app">
+
+  <div class="chrome">
+    <div class="brand">
+      <span class="mark">Ledger Memory</span>
+      <span class="sub">Client Onboarding &middot; KYC/AML</span>
+    </div>
+    <div class="client">
+      <div>
+        <div class="nm">Novaris Kapitaal BV</div>
+        <div class="id mono">client_id 66f2ac91 &middot; BE 0784.512.339 &middot; Belgium</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="ops" id="ops"></div>
+    <div class="clock mono" id="clock">13 AUG 2026 &middot; 14:38:02 CEST</div>
+  </div>
+
+  <div class="dials">
+
+    <div class="dial">
+      <div class="gauge">
+        <svg viewBox="0 0 140 140">
+          <path class="track" d="M31.82 108.18 A54 54 0 1 1 108.18 108.18"/>
+          <path class="prog" id="confArc" d="M31.82 108.18 A54 54 0 1 1 108.18 108.18"
+                pathLength="100" stroke="#58a6ff" stroke-dasharray="100" stroke-dashoffset="100"/>
+        </svg>
+        <div class="readout">
+          <div class="num tnum" id="confNum" style="color:#58a6ff">4<span class="pct">%</span></div>
+          <div class="band" id="confBand" style="color:#58a6ff;background:#0f1c2b">SPARSE</div>
+        </div>
+      </div>
+      <div class="dial-meta">
+        <div class="dial-title">Confidence</div>
+        <div class="dial-desc">How much we know &mdash; weighted required-field coverage</div>
+        <div class="spark-wrap">
+          <div class="spark-lbl">
+            <span>score_events &middot; session</span>
+            <span class="delta mono" id="confDelta" style="color:#58a6ff">&mdash;</span>
+          </div>
+          <svg class="spark" id="confSpark" viewBox="0 0 240 34" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="dial">
+      <div class="gauge">
+        <svg viewBox="0 0 140 140">
+          <path class="track" d="M31.82 108.18 A54 54 0 1 1 108.18 108.18"/>
+          <path class="prog" id="riskArc" d="M31.82 108.18 A54 54 0 1 1 108.18 108.18"
+                pathLength="100" stroke="#64707e" stroke-dasharray="100" stroke-dashoffset="100"/>
+        </svg>
+        <div class="readout">
+          <div class="num tnum" id="riskNum" style="color:#64707e">&mdash;</div>
+          <div class="band" id="riskBand" style="color:#64707e;background:#171d24">UNKNOWN</div>
+        </div>
+      </div>
+      <div class="dial-meta">
+        <div class="dial-title">Risk</div>
+        <div class="dial-desc">How bad it looks &mdash; content-driven, moves either way</div>
+        <div class="spark-wrap">
+          <div class="spark-lbl">
+            <span>score_events &middot; session</span>
+            <span class="delta mono" id="riskDelta" style="color:#64707e">&mdash;</span>
+          </div>
+          <svg class="spark" id="riskSpark" viewBox="0 0 240 34" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="beatcell">
+      <div class="beat-top">
+        <span class="beat-idx" id="beatIdx">BEAT 0</span>
+        <span class="beat-title" id="beatTitle">Empty file</span>
+      </div>
+      <div class="beat-body" id="beatBody"></div>
+      <div class="composite" id="composite"></div>
+    </div>
+
+  </div>
+
+  <div class="main">
+
+    <div class="col left">
+      <div class="colhead"><span>Documents</span><span class="cnt" id="docCount">0 files</span></div>
+      <div class="colbody">
+        <div class="dropzone" id="dropzone">
+          <div class="dz-flash"></div>
+          <div class="dz-icon">&#8681;</div>
+          <div class="dz-t">Drop client documents here</div>
+          <div class="dz-s">JPG / PNG / PDF &middot; voyage-multimodal-3.5</div>
+        </div>
+        <div class="doclist" id="doclist"></div>
+        <div class="case" id="case">
+          <div class="case-h">
+            <span>Case open &middot; follow-up agent</span>
+            <span class="due">due 27 Aug</span>
+          </div>
+          <div class="case-b">
+            <div class="case-lbl">Awaiting</div>
+            <div class="case-mail" id="caseAwait" style="margin-bottom:9px"></div>
+            <div class="case-lbl">Drafted RFI &mdash; not sent</div>
+            <div class="case-mail" id="caseMail"></div>
+            <div class="case-sim">
+              <input type="text" placeholder="Simulate client response&hellip;">
+              <button>Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col centre">
+      <div class="colhead">
+        <span>Government filing preview</span>
+        <span class="cnt">FOD Financi&euml;n / SPF Finances &middot; draft</span>
+      </div>
+      <div class="colbody">
+        <div class="formwrap">
+          <div class="paper">
+            <div class="paper-top">
+              <div class="pt-l">
+                <div class="pt-org">Koninkrijk Belgi&euml; &middot; Royaume de Belgique &mdash; FOD Financi&euml;n / SPF Finances</div>
+                <div class="pt-title">Client Identification &amp; UBO Declaration</div>
+                <div class="pt-sub">AML Directive (EU) 2015/849 &middot; Art. 26 &middot; Wet 18.09.2017</div>
+              </div>
+              <div class="pt-r">
+                <div class="pt-form">FORM KYC&#8209;231/BE</div>
+                <div class="pt-form" style="color:#6d7783;font-weight:500;margin-top:3px">rev. 2026.02</div>
+                <div class="pt-stamp" id="stamp">NOT SUBMITTABLE</div>
+              </div>
+            </div>
+
+            <div class="tally">
+              <div class="tally-num">
+                <span class="big tnum" id="tallyN">1</span><span class="of"> of 23</span>
+              </div>
+              <div class="tally-txt">
+                fields resolved &mdash;
+                <span class="blk tnum" id="tallyK">20</span> blocking submission
+                <div style="font:400 10.5px/1.4 var(--mono);color:#7a8390;margin-top:3px" id="tallySub"></div>
+              </div>
+              <div class="tally-bar">
+                <i class="g" id="tallyBarG" style="width:4%"></i>
+                <i class="a" id="tallyBarA" style="width:0%"></i>
+              </div>
+            </div>
+
+            <div class="paper-body" id="formBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col right">
+      <div class="colhead">
+        <span>Risk breakdown</span>
+        <span class="cnt" id="evCount">evidence &middot; 0 items</span>
+      </div>
+      <div class="colbody">
+        <div class="bars" id="bars"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div class="foot-l">
+      <div class="foot-head">
+        <span class="foot-title">Record verdict &rarr; <span class="dt">verdicts.decision_type = "kyc_risk"</span></span>
+        <span class="foot-sub" id="footWho">accountant: you &middot; auto-embedded on rationale (voyage-finance-2)</span>
+      </div>
+      <textarea id="rationale" spellcheck="false" placeholder="Rationale — this prose is what future retrievals match on. Write it like you would explain the call to a colleague."></textarea>
+    </div>
+    <div class="foot-r">
+      <div class="pending" id="pending">
+        <span class="dot"></span>
+        <span class="tx">1 new verdict in memory since last score
+          <small>M. Dubois &middot; kyc_risk &middot; press Re-score to apply</small></span>
+      </div>
+      <div class="verdicts">
+        <button class="vbtn low"><div class="l">LOW</div><div class="s">standard DD</div></button>
+        <button class="vbtn med"><div class="l">MEDIUM</div><div class="s">enhanced DD</div></button>
+        <button class="vbtn high"><div class="l">HIGH RISK</div><div class="s">escalate + EDD</div></button>
+      </div>
+      <div class="actions">
+        <button class="rescore" id="rescore"><span class="spin"></span><span>RE&#8209;SCORE</span></button>
+        <button class="ghost" id="resetBtn">RESET</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   ALL DATA BELOW IS HARDCODED AND FICTIONAL.
+   No network calls, no database. Visual mockup only.
+   ============================================================ */
+
+const SECTIONS = [
+  { ltr:"A", name:"Entity identification", fields:[
+    ["legal_name",        "Legal name",                     1, "wide"],
+    ["legal_form",        "Legal form",                     1, ""],
+    ["enterprise_number", "Enterprise no. (KBO/BCE)",       1, ""],
+    ["vat_number",        "VAT number",                     1, ""],
+    ["incorporation_date","Date of incorporation",          1, ""],
+    ["registered_address","Registered seat (address)",      1, "wide"]
+  ]},
+  { ltr:"B", name:"Activity & jurisdiction", fields:[
+    ["nace_code",         "NACE-BEL activity code",         0, "wide"],
+    ["country",           "Country of establishment",       1, ""],
+    ["tax_residency",     "Tax residency",                  1, ""],
+    ["regulated_status",  "Regulated / licensed status",    1, "wide"]
+  ]},
+  { ltr:"C", name:"Authorised representative", fields:[
+    ["rep_name",          "Full legal name",                1, "wide"],
+    ["rep_dob",           "Date of birth",                  1, ""],
+    ["rep_nationality",   "Nationality",                    1, ""],
+    ["id_type",           "Identity document type",         1, ""],
+    ["id_number",         "Identity document number",       1, ""],
+    ["id_expiry",         "Identity document expiry",       1, "wide"]
+  ]},
+  { ltr:"D", name:"Ownership & control", fields:[
+    ["ubo_declaration",   "UBO register declaration",       1, "wide"],
+    ["ubo_name",          "Ultimate beneficial owner(s)",   1, ""],
+    ["ubo_pct",           "Ownership percentage",           1, ""],
+    ["control_chain",     "Control structure / chain",      0, "wide"]
+  ]},
+  { ltr:"E", name:"Financial & source of funds", fields:[
+    ["iban",              "Primary IBAN",                   1, ""],
+    ["annual_accounts",   "Latest annual accounts",         1, ""],
+    ["source_of_funds",   "Source of funds statement",      1, "wide"]
+  ]}
+];
+const FIELD_ORDER = [];
+const FIELD_LABEL = {};
+const FIELD_BLOCKING = {};
+SECTIONS.forEach(function(s){ s.fields.forEach(function(f){
+  FIELD_ORDER.push(f[0]); FIELD_LABEL[f[0]] = f[1]; FIELD_BLOCKING[f[0]] = !!f[2];
+});});
+
+const DOCS = {
+  reg:  { file:"company_registration_BE0784512339.pdf", type:"KBO/BCE company extract",
+          size:"2.1 MB", at:"14:22:41", chip:"valid", note:null },
+  pass: { file:"passport_specimen_scan.jpg", type:"Identity document",
+          size:"1.4 MB", at:"14:26:08", chip:"expired",
+          note:'Expiry <b class="bad">2024-08-19</b> &mdash; 1y 11m past. Page text carries token <b class="bad">SPECIMEN</b>.' },
+  util: { file:"utility_bill_sibelga_2026-05.jpg", type:"Proof of address",
+          size:"0.9 MB", at:"14:31:55", chip:"conflict",
+          note:'Address <b>Wetstraat 271</b> &ne; registered seat <b>Rue de la Loi 227</b>.' },
+  own:  { file:"ownership_chart_novaris_group.pdf", type:"Ownership structure",
+          size:"0.4 MB", at:"14:35:12", chip:"valid",
+          note:'4 ownership edges parsed &rarr; <b>$graphLookup</b> reached depth 2.' },
+  inc:  { file:"income_statement_2019.pdf", type:"Annual accounts",
+          size:"1.1 MB", at:"14:35:47", chip:"stale",
+          note:'Filed <b>2020-04-30</b> &mdash; 74 months old, threshold 18.' }
+};
+const DOC_ORDER = ["reg","pass","util","own","inc"];
+
+const V = {
+  legal_name:        { v:"Novaris Kapitaal BV",                  src:"company_registration_BE0784512339.pdf &middot; conf 0.98" },
+  legal_form:        { v:"Besloten Vennootschap (BV)",           src:"company_registration &middot; conf 0.97" },
+  enterprise_number: { v:"BE 0784.512.339",                      src:"company_registration &middot; conf 0.99" },
+  vat_number:        { v:"BE 0784 512 339",                      src:"company_registration &middot; derived" },
+  incorporation_date:{ v:"16 March 2021",                        src:"company_registration &middot; conf 0.96" },
+  registered_address:{ v:"Rue de la Loi 227, 1040 Bruxelles",    src:"company_registration &middot; conf 0.94" },
+  nace_code:         { v:"70220 &mdash; Business &amp; other management consultancy", src:"company_registration &middot; conf 0.91" },
+  country:           { v:"Belgium (BE)",                         src:"intake form &middot; manual entry" },
+  tax_residency:     { v:"Belgium (BE) &mdash; resident",        src:"utility_bill_sibelga_2026-05.jpg &middot; inferred" },
+  regulated_status:  { v:"NOT PROVIDED",                         src:"" },
+  rep_name:          { v:"Lieselot Vandersteen",                 src:"passport_specimen_scan.jpg &middot; conf 0.93" },
+  rep_dob:           { v:"07 Nov 1984",                          src:"passport_specimen_scan.jpg &middot; MRZ" },
+  rep_nationality:   { v:"Belgian (BE)",                         src:"passport_specimen_scan.jpg &middot; MRZ" },
+  id_type:           { v:"Passport &mdash; Kingdom of Belgium",  src:"passport_specimen_scan.jpg &middot; MRZ" },
+  id_number:         { v:"EM 4417 923",                          src:"passport_specimen_scan.jpg &middot; MRZ" },
+  id_expiry:         { v:"19 Aug 2024",                          src:"passport_specimen_scan.jpg &middot; MRZ" },
+  ubo_declaration:   { v:"Filed &mdash; UBO register ref. UBO-2026-118442", src:"ownership_chart_novaris_group.pdf" },
+  ubo_name:          { v:"L. Vandersteen &middot; Helvetia Trade Partners S&agrave;rl", src:"ownership_chart &middot; parsed" },
+  ubo_pct:           { v:"40.0% direct &middot; 22.0% indirect",  src:"ownership_chart &middot; parsed" },
+  control_chain:     { v:"3-level chain &mdash; BE &rarr; LU &rarr; CY", src:"ownership &middot; $graphLookup" },
+  iban:              { v:"NOT PROVIDED",                         src:"" },
+  annual_accounts:   { v:"FY2019 &mdash; filed 30 Apr 2020",     src:"income_statement_2019.pdf" },
+  source_of_funds:   { v:"NOT PROVIDED",                         src:"" }
+};
+
+const CITE_BASE = [
+  { who:"A. Lemmens", init:"AL", date:"22 Apr 2025", dec:"LOW", rel:"0.412",
+    q:"Fiduciaire Delvaux BV &mdash; sole-director consultancy, domestic only. Standard due diligence?",
+    r:"Single-jurisdiction structure, director resident and identifiable at the registered seat, no nominee layer, no foreign settlement account. Standard due diligence is sufficient; escalation here would be noise." },
+  { who:"S. Peeters", init:"SP", date:"18 Jun 2025", dec:"MEDIUM", rel:"0.377",
+    q:"Vermeersch Bouw BV &mdash; annual accounts two years late at onboarding.",
+    r:"A filing delay is a compliance flag, not a laundering flag, where the operating history is independently verifiable through VAT returns. Accept at MEDIUM with a 60-day condition on filed accounts." },
+  { who:"K. Willems", init:"KW", date:"30 Sep 2025", dec:"LOW", rel:"0.341",
+    q:"Ostend Marine Services BV &mdash; expired passport presented at intake.",
+    r:"An expired identity document at intake is a documentation gap, not a red flag. Re-request and hold the file open; do not escalate provided the ownership chain resolves cleanly to a named resident individual." }
+];
+const CITE_HOT = [
+  { who:"M. Dubois", init:"MD", date:"30 seconds ago", now:true, fresh:true, dec:"HIGH", rel:"0.941",
+    q:"Nominee-held BE entity with a Luxembourg intermediate and a Cyprus parent sharing a settlement account with two Baltic shells &mdash; accept at standard DD?",
+    r:"Same pattern as Kervyn Trading in 2024. The Luxembourg layer has no staff, no premises and no third-party revenue &mdash; it exists to break the ownership line. Once the parent shares a settlement account with entities we have never onboarded, standard due diligence is not defensible. HIGH. Enhanced due diligence, and no account opening until the UBO chain is evidenced by a registry extract." },
+  { who:"M. Dubois", init:"MD", date:"11 Feb 2026", dec:"HIGH", rel:"0.802",
+    q:"Kervyn Trading BV &mdash; Luxembourg intermediate with no substance between a BE operating company and a non-EU parent.",
+    r:"Two hops of holding structure with no employees at the middle tier. We treated this as HIGH and were right: the parent was later named in a Latvian correspondent-banking review. Do not accept the intermediate as a control break." },
+  { who:"A. Lemmens", init:"AL", date:"04 Nov 2025", dec:"HIGH", rel:"0.744",
+    q:"Sterckx Logistiek NV &mdash; one IBAN shared across three unrelated counterparties.",
+    r:"A shared settlement account across entities with no disclosed commercial relationship is the single strongest predictor we have. Every file where we accepted this at MEDIUM was reopened within a year." }
+];
+
+/* ---------- the six demo states ---------- */
+const S = [];
+
+S[0] = {
+  title:"Empty file",
+  body:"Nothing but the intake form. Confidence <em>4%</em>, risk <em>unknown</em> &mdash; not low. An empty file is not a safe file; treating unknown as safe is the classic KYC failure and the reason firms get fined.",
+  conf:4, risk:null,
+  comps:{ precedent:null, contradiction:null, integrity:null, graph:null },
+  docs:[], caseOpen:false, pending:false, fired:null, ops:[],
+  fields:{ country:"resolved" }
+};
+
+S[1] = {
+  title:"Company registration dropped",
+  body:"KBO/BCE extract parsed by <em>voyage-multimodal-3.5</em>. Seven fields flip green in one pass, confidence <em>31%</em>. Risk barely moves &mdash; nothing here is wrong yet.",
+  conf:31, risk:0.04,
+  comps:{ precedent:0.12, contradiction:0.00, integrity:0.00, graph:0.00 },
+  docs:["reg"], caseOpen:false, pending:false, fired:null,
+  ops:["multimodal"],
+  fields:{ country:"resolved", legal_name:"resolved", legal_form:"resolved",
+    enterprise_number:"resolved", vat_number:"resolved", incorporation_date:"resolved",
+    registered_address:"resolved", nace_code:"resolved" }
+};
+
+S[2] = {
+  title:"Passport dropped &mdash; expired, marked SPECIMEN",
+  body:"Identity fields resolve, but <em>integrity fires</em>: expiry 19 Aug 2024, 1y 11m in the past, and the page text carries a <em>SPECIMEN</em> token. Flagged by filename. The follow-up agent opens a case and drafts the RFI.",
+  conf:52, risk:0.12,
+  comps:{ precedent:0.12, contradiction:0.00, integrity:0.38, graph:0.00 },
+  docs:["reg","pass"], caseOpen:true, pending:false, fired:"integrity",
+  ops:["multimodal","stream"],
+  fields:{ country:"resolved", legal_name:"resolved", legal_form:"resolved",
+    enterprise_number:"resolved", vat_number:"resolved", incorporation_date:"resolved",
+    registered_address:"resolved", nace_code:"resolved",
+    rep_name:"resolved", rep_dob:"resolved", rep_nationality:"resolved",
+    id_type:"resolved", id_number:"resolved", id_expiry:"rejected" }
+};
+
+S[3] = {
+  title:"Utility bill dropped &mdash; address contradicts registration",
+  body:"<em>Contradiction fires.</em> Rue de la Loi 227 vs Wetstraat 271 &mdash; the same street in the other national language, a different house number. The embedding catches the FR/NL equivalence so it is not dismissed as a translation artefact. That is the check a junior does by eye across twelve PDFs.",
+  conf:57, risk:0.27,
+  comps:{ precedent:0.12, contradiction:0.50, integrity:0.38, graph:0.00 },
+  docs:["reg","pass","util"], caseOpen:true, pending:false, fired:"contradiction",
+  ops:["multimodal","stream","vector"],
+  fields:{ country:"resolved", legal_name:"resolved", legal_form:"resolved",
+    enterprise_number:"resolved", vat_number:"resolved", incorporation_date:"resolved",
+    registered_address:"conflict", nace_code:"resolved", tax_residency:"resolved",
+    rep_name:"resolved", rep_dob:"resolved", rep_nationality:"resolved",
+    id_type:"resolved", id_number:"resolved", id_expiry:"rejected" }
+};
+
+S[4] = {
+  title:"Ownership chart dropped &mdash; graph path found",
+  body:"<em>$graphLookup</em> walks the ownership edges and lands on a flagged shared-IBAN cluster at exactly two hops. Risk <em>0.38 MEDIUM</em>. Everything so far is document parsing &mdash; every KYC vendor has this. Now watch memory.",
+  conf:74, risk:0.38,
+  comps:{ precedent:0.12, contradiction:0.50, integrity:0.55, graph:0.52 },
+  docs:["reg","pass","util","own","inc"], caseOpen:true, pending:true, fired:"graph",
+  ops:["multimodal","stream","vector","graph"],
+  fields:{ country:"resolved", legal_name:"resolved", legal_form:"resolved",
+    enterprise_number:"resolved", vat_number:"resolved", incorporation_date:"resolved",
+    registered_address:"conflict", nace_code:"resolved", tax_residency:"resolved",
+    rep_name:"resolved", rep_dob:"resolved", rep_nationality:"resolved",
+    id_type:"resolved", id_number:"resolved", id_expiry:"rejected",
+    ubo_declaration:"resolved", ubo_name:"resolved", ubo_pct:"resolved",
+    control_chain:"resolved", annual_accounts:"rejected" }
+};
+
+S[5] = {
+  title:"Re-scored &mdash; a colleague's judgment entered memory",
+  body:"No new document. No retraining. <em>One insert into one collection</em> &mdash; M. Dubois confirmed HIGH on an analogous past case 30 seconds ago, $rankFusion retrieved it at relevance 0.941, and risk jumps <em>0.38 &rarr; 0.71 HIGH</em>. The breakdown names him and quotes him.",
+  conf:74, risk:0.71,
+  comps:{ precedent:0.97, contradiction:0.50, integrity:0.55, graph:0.72 },
+  docs:["reg","pass","util","own","inc"], caseOpen:true, pending:false, fired:"precedent",
+  ops:["multimodal","stream","vector","graph","fusion","rerank"],
+  fields:JSON.parse(JSON.stringify(S[4].fields))
+};
+
+/* NOTE: context.md states bands <0.4 LOW but also calls the scripted 0.38 "MEDIUM".
+   Bands here are 0.35 / 0.70 so the on-screen legend is self-consistent with the script. */
+function band(r){ if(r===null||r===undefined) return "UNKNOWN"; if(r<0.35) return "LOW"; if(r<=0.70) return "MEDIUM"; return "HIGH"; }
+const BANDC  = { LOW:"#3ecf8e", MEDIUM:"#e9a33a", HIGH:"#ef5350", UNKNOWN:"#64707e" };
+const BANDBG = { LOW:"#0e1f18", MEDIUM:"#211a0d", HIGH:"#211113", UNKNOWN:"#171d24" };
+
+const COMPS = [
+  { k:"precedent",     w:"0.35",  star:true,  op:"$rankFusion &rarr; $rerank" },
+  { k:"contradiction", w:"0.30",  star:true,  op:"normalise + $vectorSearch" },
+  { k:"integrity",     w:"0.20",  star:false, op:"deterministic &mdash; expiry / staleness" },
+  { k:"graph",         w:"0.15",  star:false, op:"$graphLookup maxDepth 3" },
+  { k:"completeness",  w:"&rarr; conf", star:false, op:"clients.resolved_fields" }
+];
+
+const OPS = [
+  { k:"multimodal", l:"voyage-multimodal-3.5" },
+  { k:"vector",     l:"$vectorSearch" },
+  { k:"fusion",     l:"$rankFusion" },
+  { k:"rerank",     l:"$rerank" },
+  { k:"graph",      l:"$graphLookup" },
+  { k:"stream",     l:"changeStream" }
+];
+
+/* ============================================================
+   BUILD STATIC DOM ONCE
+   ============================================================ */
+function $(id){ return document.getElementById(id); }
+
+$("ops").innerHTML = OPS.map(function(o){
+  return '<span class="opbadge" data-op="'+o.k+'">'+o.l+'</span>'; }).join("");
+
+$("pips").innerHTML = S.map(function(s,i){
+  return '<button class="pip" data-i="'+i+'">'+i+'</button>'; }).join("");
+
+$("doclist").innerHTML =
+  '<div class="empty" id="docEmpty">no documents<br>&mdash;<br>required-field coverage 4%</div>' +
+  DOC_ORDER.map(function(k){
+    var d = DOCS[k];
+    return '<div class="doc st-'+d.chip+'" data-doc="'+k+'">'+
+      '<div class="doc-r1"><div class="doc-fn">'+d.file+'</div>'+
+      '<div class="chip '+d.chip+'">'+(d.chip==="conflict"?"conflicting":d.chip)+'</div></div>'+
+      '<div class="doc-r2"><span>'+d.type+'</span><span>'+d.size+' &middot; '+d.at+'</span></div>'+
+      (d.note?'<div class="doc-note">'+d.note+'</div>':'')+
+    '</div>';
+  }).join("");
+
+$("formBody").innerHTML = SECTIONS.map(function(sec){
+  return '<div class="sect">'+
+    '<div class="sect-h"><span class="ltr">'+sec.ltr+'</span><span class="nm">'+sec.name+'</span></div>'+
+    '<div class="grid2">'+ sec.fields.map(function(f){
+      return '<div class="f '+f[3]+'">'+
+        '<div class="fld s-unresolved" data-f="'+f[0]+'">'+
+          '<div class="tag" style="display:none"></div>'+
+          '<div class="lbl">'+f[1]+(f[2]?' <span class="req">*</span>':'')+'</div>'+
+          '<div class="val">&mdash; UNRESOLVED</div>'+
+          '<div class="src" style="display:none"></div>'+
+          '<div class="conf2" style="display:none"></div>'+
+        '</div></div>';
+    }).join("") + '</div></div>';
+}).join("") +
+'<div class="paper-foot">'+
+  '<div>Generated by Ledger Memory &middot; draft filing &middot; not lodged<br>Ref. LM/2026/BE/00417 &middot; 13 Aug 2026</div>'+
+  '<div style="text-align:right"><div class="sigbox"></div>'+
+  '<div style="margin-top:4px">Signature &mdash; authorised representative</div></div>'+
+'</div>';
+
+$("bars").innerHTML = COMPS.map(function(c){
+  return '<div class="bar" data-c="'+c.k+'">'+
+    '<div class="bar-h"><span class="bar-caret">&#9654;</span>'+
+      '<span class="bar-name"><span class="n">'+c.k+'</span>'+
+      (c.star?'<span class="star">&#9733;</span>':'')+
+      '<span class="w">w '+c.w+'</span></span>'+
+      '<span class="bar-num" data-num>&mdash;</span></div>'+
+    '<div class="bar-track"><div class="bar-fill" data-fill></div>'+
+      '<div class="bar-ticks"><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i></div></div>'+
+    '<div class="bar-meta"><span class="op mono">'+c.op+'</span><span data-ct>no evidence</span></div>'+
+    '<div class="ev" data-ev></div></div>';
+}).join("");
+
+Array.prototype.forEach.call(document.querySelectorAll(".bar"), function(b){
+  b.querySelector(".bar-h").addEventListener("click", function(){ b.classList.toggle("open"); });
+});
+
+/* ============================================================
+   ANIMATION HELPERS
+   ============================================================ */
+function easeOut(t){ return 1 - Math.pow(1-t, 3); }
+var tweens = new Map();
+function tweenNum(el, from, to, dur, fmt){
+  if(tweens.has(el)) cancelAnimationFrame(tweens.get(el));
+  var t0 = performance.now();
+  function step(now){
+    var p = Math.min(1,(now-t0)/dur), e = easeOut(p);
+    el.innerHTML = fmt(from + (to-from)*e);
+    if(p<1) tweens.set(el, requestAnimationFrame(step)); else tweens.delete(el);
+  }
+  tweens.set(el, requestAnimationFrame(step));
+}
+
+function drawSpark(svg, series, color, maxV){
+  var W=240,H=34,pad=3;
+  if(!series.length){ svg.innerHTML=""; return; }
+  var n = Math.max(series.length,2);
+  var pts = series.map(function(v,i){
+    var x = pad + (W-2*pad) * (series.length===1 ? 0 : i/(n-1));
+    var y = H-pad - (H-2*pad) * ((v==null?0:v)/maxV);
+    return [x,y];
+  });
+  var line = pts.map(function(p,i){ return (i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1); }).join(" ");
+  var area = line + " L"+pts[pts.length-1][0].toFixed(1)+" "+(H-pad)+" L"+pts[0][0].toFixed(1)+" "+(H-pad)+" Z";
+  var last = pts[pts.length-1];
+  svg.innerHTML =
+    '<line class="sgrid" x1="0" y1="'+(H/2)+'" x2="'+W+'" y2="'+(H/2)+'"/>'+
+    '<path class="sfill" d="'+area+'" fill="'+color+'"/>'+
+    '<path class="sline" d="'+line+'" stroke="'+color+'"/>'+
+    '<circle class="sdot" cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="3.2" fill="'+color+'"/>';
+  var p = svg.querySelector(".sline");
+  var len = p.getTotalLength();
+  p.style.strokeDasharray = len; p.style.strokeDashoffset = len;
+  if(p.animate) p.animate([{strokeDashoffset:len},{strokeDashoffset:0}],
+    {duration:700, easing:"cubic-bezier(.22,.9,.28,1)", fill:"forwards"});
+  else p.style.strokeDashoffset = 0;
+}
+
+var toastTimer;
+function toast(t1, t2, ms){
+  var el = $("toast");
+  $("toastT1").innerHTML = t1;
+  $("toastT2").innerHTML = t2;
+  el.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove("on"); }, ms||4200);
+}
+
+/* ============================================================
+   EVIDENCE RENDERERS
+   ============================================================ */
+function citeHtml(c, hot){
+  var cls = c.dec==="HIGH"?"hi":c.dec==="MEDIUM"?"med":"low";
+  return '<div class="cite '+cls+' '+(c.fresh&&hot?"fresh":"")+'">'+
+    '<div class="cite-r1"><div class="cite-who"><span class="av">'+c.init+'</span>'+
+      '<span><span class="nm">'+c.who+'</span>'+
+      '<span class="dt '+(c.now?"now":"")+'"> &middot; '+c.date+'</span></span></div>'+
+    '<div class="rr">'+(c.fresh&&hot?'<span class="newtag">NEW</span>':'')+
+      '<span class="rel">rel '+c.rel+'</span>'+
+      '<span class="dec '+c.dec+'">'+c.dec+'</span></div></div>'+
+    '<div class="cite-q">'+c.q+'</div>'+
+    '<div class="cite-rat">&ldquo;'+c.r+'&rdquo;</div></div>';
+}
+
+function evPrecedent(i){
+  if(i===0) return { n:0, html:'<div class="ev-none">No document summary yet &mdash; nothing to embed, nothing to retrieve.</div>' };
+  var hot = i>=5;
+  var list = hot ? CITE_HOT.concat(CITE_BASE.slice(0,2)) : CITE_BASE;
+  return { n:list.length, html:
+    '<div class="ev-h">'+list.length+' cited verdicts &middot; '+
+      (hot?'$rankFusion 0.7/0.3 &rarr; $rerank rerank-2.5':'$rankFusion 0.7/0.3 &mdash; low relevance, no analogous case')+'</div>'+
+    list.map(function(c){ return citeHtml(c, hot); }).join("")+
+    (hot?'<div class="cf-note" style="border-top:1px dotted #29323d;padding-top:8px;color:#96a2b1">'+
+      'Relevance-weighted share of HIGH decisions: <b style="color:#ef5350">0.97</b>. '+
+      'Three of the top five now sit at HIGH, and the top hit was written 30 seconds ago. '+
+      'No model was retrained &mdash; one document entered <span class="mono" style="color:#a78bfa">verdicts</span>.</div>':'')
+  };
+}
+
+function evContradiction(i){
+  if(i<3) return { n:0, html:'<div class="ev-none">No conflicting field values across this client&rsquo;s documents.</div>' };
+  return { n:1, html:
+    '<div class="ev-h">1 conflict &middot; 2 fields cleared by normalisation</div>'+
+    '<div class="conflict"><div class="cf">field: registered_address</div>'+
+      '<div class="cf-pair">'+
+        '<div class="cf-side"><div class="k">Value A &middot; registration</div>'+
+          '<div class="v">Rue de la Loi 227<br>1040 Bruxelles</div>'+
+          '<div class="fn">company_registration_BE0784512339.pdf<br>extracted 14:22:41 &middot; conf 0.94</div></div>'+
+        '<div class="cf-side"><div class="k">Value B &middot; proof of address</div>'+
+          '<div class="v">Wetstraat 271<br>1040 Brussel</div>'+
+          '<div class="fn">utility_bill_sibelga_2026-05.jpg<br>extracted 14:31:55 &middot; conf 0.90</div></div>'+
+      '</div>'+
+      '<div class="cf-note"><b>Rue de la Loi &equiv; Wetstraat</b> &mdash; the FR and NL names of the same Brussels street, '+
+      'cosine <b>0.94</b> on the normalised address embedding. The street is <b>not</b> the conflict. '+
+      'House number <b>227 &ne; 271</b> &mdash; a different building on the same road. A genuine mismatch, '+
+      'not a translation artefact: exactly the false positive a string comparison raises and the true positive it misses.</div>'+
+    '</div>'+
+    '<div class="conflict cf-ok"><div class="cf">cleared &middot; no conflict</div>'+
+      '<div class="cf-note" style="border:0;padding:0;margin:0">'+
+        '<span class="mono" style="color:#8fe0b8">legal_name</span> &ldquo;Novaris Kapitaal BV&rdquo; vs &ldquo;NOVARIS KAPITAAL BVBA&rdquo; &mdash; normalised match (2019 legal-form reform).<br>'+
+        '<span class="mono" style="color:#8fe0b8">company_number</span> &ldquo;BE 0784.512.339&rdquo; vs &ldquo;0784512339&rdquo; &mdash; normalised match.</div>'+
+    '</div>'
+  };
+}
+
+function evIntegrity(i){
+  if(i<2) return { n:0, html:'<div class="ev-none">No expiry, staleness or jurisdiction findings.</div>' };
+  var items = [
+    { sev:"hi", t:"Identity document expired",
+      d:"passport_specimen_scan.jpg &middot; expiry_date 2024-08-19 &middot; 719 days past &middot; blocks field id_expiry" },
+    { sev:"md", t:"Page text contains SPECIMEN token",
+      d:"passport_specimen_scan.jpg &middot; filename token &quot;specimen&quot; + OCR match on page 1 &middot; may not be a live instrument" }
+  ];
+  if(i>=4) items.push({ sev:"md", t:"Annual accounts stale",
+      d:"income_statement_2019.pdf &middot; issued 2020-04-30 &middot; 74 months &gt; 18-month threshold &middot; blocks field annual_accounts" });
+  return { n:items.length, html:
+    '<div class="ev-h">'+items.length+' findings &middot; jurisdiction check passed (BE)</div>'+
+    items.map(function(f){
+      return '<div class="find"><span class="sev '+f.sev+'">'+(f.sev==="hi"?"HIGH":"MED")+'</span>'+
+        '<div><div class="t">'+f.t+'</div><div class="d mono">'+f.d+'</div></div></div>';
+    }).join("")
+  };
+}
+
+function evGraph(i){
+  if(i<4) return { n:0, html:'<div class="ev-none">No ownership edges loaded &mdash; $graphLookup not run.</div>' };
+  var hot = i>=5;
+  return { n:2, html:
+    '<div class="ev-h">path found &middot; depth 2 of maxDepth 3 &middot; 4 edges traversed</div>'+
+    '<div class="gpath">'+
+      '<div class="node self"><span class="hop">0</span><div>'+
+        '<div class="nm">Novaris Kapitaal BV</div>'+
+        '<div class="sub">BE &middot; 0784.512.339 &middot; this client</div></div></div>'+
+      '<div class="edge">owned <b>40%</b> by &darr;</div>'+
+      '<div class="node"><span class="hop">1</span><div>'+
+        '<div class="nm">Helvetia Trade Partners S&agrave;rl</div>'+
+        '<div class="sub">LU &middot; B248117 &middot; 0 employees, registered-agent address</div></div></div>'+
+      '<div class="edge">owned <b>55%</b> by &darr;</div>'+
+      '<div class="node flag"><span class="hop">2</span><div>'+
+        '<div class="nm">Meridian Holdings Ltd</div>'+
+        '<div class="sub">CY &middot; HE 401882 &middot; IBAN LV80 HABA 0000 4351 9500 1</div></div></div>'+
+      '<div class="edge">shares that IBAN with &darr;</div>'+
+      '<div class="node flag"><span class="hop">&#9873;</span><div>'+
+        '<div class="nm">Baltic Freight Nominees SIA</div>'+
+        '<div class="sub">LV &middot; flagged 02 Dec 2025 &middot; correspondent-banking review</div></div></div>'+
+      '<div style="height:5px"></div>'+
+      '<div class="node flag"><span class="hop">&#9873;</span><div>'+
+        '<div class="nm">Astra Consulting O&Uuml;</div>'+
+        '<div class="sub">EE &middot; flagged 19 Jan 2026 &middot; shell indicators</div></div></div>'+
+      '<div class="gp-note">Two hops from the client to a <b>3-entity shared-IBAN cluster</b>, two members already flagged. '+
+      'The Luxembourg tier reports no employees and no premises.'+
+      (hot?'<br><br><b>Re-weighted +0.20 on this pass</b> &mdash; the retrieved precedent&rsquo;s '+
+        '<span class="mono" style="color:#a78bfa">features_at_decision</span> match this exact shape '+
+        '(LU intermediate &rarr; non-BE parent &rarr; shared settlement account).':'')+
+      '</div>'+
+    '</div>'
+  };
+}
+
+function evCompleteness(i){
+  var st = S[i], missing = [], amber = [];
+  FIELD_ORDER.forEach(function(f){
+    var s = st.fields[f];
+    if(s==="conflict") amber.push(f);
+    else if(s!=="resolved") missing.push(f);
+  });
+  return { n:missing.length+amber.length, html:
+    '<div class="ev-h">'+missing.length+' unresolved &middot; '+amber.length+' conflicting &middot; drives confidence, not risk</div>'+
+    '<div class="misslist">'+
+      amber.map(function(f){ return '<span class="miss amb">'+f+' &middot; conflict</span>'; }).join("")+
+      missing.map(function(f){ return '<span class="miss">'+f+(FIELD_BLOCKING[f]?" *":"")+'</span>'; }).join("")+
+    '</div>'+
+    '<div class="cf-note" style="border-top:1px dotted #29323d;margin-top:9px;padding-top:8px">'+
+      '<b style="color:#96a2b1">*</b> marks a field that blocks lodgement of FORM KYC&#8209;231/BE. '+
+      'Confidence is weighted &mdash; identity and ownership fields carry more than activity codes.</div>'
+  };
+}
+
+var EV = { precedent:evPrecedent, contradiction:evContradiction, integrity:evIntegrity,
+           graph:evGraph, completeness:evCompleteness };
+
+/* ============================================================
+   APPLY STATE
+   ============================================================ */
+var cur = -1;
+var prevVals = { conf:0, risk:0, comps:{precedent:0,contradiction:0,integrity:0,graph:0,completeness:0} };
+var prevFieldStatus = {};
+
+function apply(i, opts){
+  opts = opts || {};
+  var st = S[i], prevI = cur;
+  cur = i;
+
+  Array.prototype.forEach.call(document.querySelectorAll(".pip"), function(p){
+    p.classList.toggle("on", +p.dataset.i === i); });
+  $("prev").disabled = (i===0);
+  $("next").disabled = (i===S.length-1);
+
+  /* narration */
+  $("beatIdx").textContent = "BEAT " + i;
+  $("beatTitle").innerHTML = st.title;
+  $("beatBody").innerHTML = st.body;
+  var c = st.comps;
+  $("composite").innerHTML = (st.risk===null)
+    ? 'risk = <b>unknown</b> &mdash; no document content to score. confidence <b>'+st.conf+'%</b>.'
+    : 'risk = 0.35&middot;<b>'+c.precedent.toFixed(2)+'</b> + 0.30&middot;<b>'+c.contradiction.toFixed(2)+
+      '</b> + 0.20&middot;<b>'+c.integrity.toFixed(2)+'</b> + 0.15&middot;<b>'+c.graph.toFixed(2)+
+      '</b> = <b style="color:'+BANDC[band(st.risk)]+'">'+st.risk.toFixed(2)+'</b><br>'+
+      'bands &nbsp;LOW &lt;0.35 &nbsp;&middot;&nbsp; MEDIUM &le;0.70 &nbsp;&middot;&nbsp; HIGH &gt;0.70';
+
+  Array.prototype.forEach.call(document.querySelectorAll(".opbadge"), function(b){
+    b.classList.toggle("hot", st.ops.indexOf(b.dataset.op) >= 0); });
+
+  /* confidence dial */
+  var cFrom = prevVals.conf, cTo = st.conf;
+  tweenNum($("confNum"), cFrom, cTo, 900, function(v){
+    return Math.round(v) + '<span class="pct">%</span>'; });
+  $("confArc").style.strokeDashoffset = 100 - cTo;
+  $("confBand").textContent = cTo>=90?"COMPLETE":cTo>=60?"SUBSTANTIAL":cTo>=25?"PARTIAL":"SPARSE";
+  var cd = cTo - cFrom;
+  $("confDelta").textContent = (prevI<0 || cd===0) ? "hold" : (cd>0?"+":"") + cd + " pts";
+  $("confDelta").style.color = cd>0 ? "#3ecf8e" : "#64707e";
+
+  /* risk dial */
+  var rTo = st.risk, lvl = band(rTo), col = BANDC[lvl];
+  $("riskArc").setAttribute("stroke", col);
+  $("riskArc").style.strokeDashoffset = 100 - (rTo===null?0:rTo*100);
+  $("riskNum").style.color = col;
+  $("riskBand").textContent = lvl;
+  $("riskBand").style.color = col;
+  $("riskBand").style.background = BANDBG[lvl];
+  if(rTo===null){
+    if(tweens.has($("riskNum"))) cancelAnimationFrame(tweens.get($("riskNum")));
+    $("riskNum").innerHTML = "&mdash;";
+    $("riskDelta").textContent = "no signal"; $("riskDelta").style.color = "#64707e";
+  } else {
+    tweenNum($("riskNum"), prevVals.risk, rTo, 900, function(v){ return v.toFixed(2); });
+    var rd = rTo - prevVals.risk;
+    $("riskDelta").textContent = (prevI<0 || Math.abs(rd)<0.005) ? "hold" : (rd>0?"+":"") + rd.toFixed(2);
+    $("riskDelta").style.color = rd>0.005 ? "#ef5350" : (rd<-0.005 ? "#3ecf8e" : "#64707e");
+  }
+
+  /* sparklines */
+  var confHist = [], riskHist = [];
+  for(var k=0;k<=i;k++){ confHist.push(S[k].conf); if(S[k].risk!==null) riskHist.push(S[k].risk); }
+  drawSpark($("confSpark"), confHist, "#58a6ff", 100);
+  drawSpark($("riskSpark"), riskHist.length?riskHist:[0], col, 1);
+
+  /* documents */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-doc]"), function(d){
+    var on = st.docs.indexOf(d.dataset.doc) >= 0;
+    var was = d.classList.contains("on");
+    d.classList.toggle("on", on);
+    if(on && !was && prevI>=0){ d.style.animation="none"; void d.offsetWidth; d.style.animation=""; }
+  });
+  $("docEmpty").style.display = st.docs.length ? "none" : "block";
+  $("docCount").textContent = st.docs.length ? st.docs.length + (st.docs.length===1?" file":" files") : "0 files";
+  if(prevI>=0 && st.docs.length > S[prevI].docs.length){
+    var dz = $("dropzone"); dz.classList.add("hit","armed");
+    setTimeout(function(){ dz.classList.remove("hit","armed"); }, 750);
+  }
+
+  /* case */
+  $("case").classList.toggle("on", st.caseOpen);
+  $("caseAwait").textContent = (st.docs.indexOf("inc")>=0)
+    ? "1. Valid (unexpired) identity document for L. Vandersteen\n2. Proof of address matching the registered seat\n3. Annual accounts FY2024 or FY2025"
+    : "1. Valid (unexpired) identity document for L. Vandersteen";
+  $("caseMail").textContent =
+"Subject: Novaris Kapitaal BV — documents required to\n         complete onboarding\n\n" +
+"Dear Ms Vandersteen,\n\n" +
+"To complete your client file we still require a valid\n" +
+"identity document. The passport supplied (no. EM 4417 923)\n" +
+"expired on 19 August 2024 and the scan carries a SPECIMEN\n" +
+"marking, so it cannot be accepted for identification under\n" +
+"the AML Act of 18 September 2017.\n\n" +
+"Please return a current passport or eID by 27 August 2026.\n\n" +
+"Kind regards,\nOnboarding — Ledger Memory\n\n[DRAFT — not sent]";
+
+  /* form fields */
+  var green=0, amberN=0, blocking=0;
+  FIELD_ORDER.forEach(function(f){
+    var status = st.fields[f] || "unresolved";
+    var el  = document.querySelector('.fld[data-f="'+f+'"]');
+    var val = el.querySelector(".val"), src = el.querySelector(".src"),
+        tag = el.querySelector(".tag"), c2 = el.querySelector(".conf2");
+    var changed = prevFieldStatus[f] !== status;
+
+    el.className = "fld s-" + status;
+    tag.style.display="none"; c2.style.display="none"; src.style.display="none"; val.style.display="block";
+
+    if(status==="resolved"){
+      green++; val.innerHTML = V[f].v; src.innerHTML = V[f].src; src.style.display="block";
+    } else if(status==="rejected"){
+      val.innerHTML = V[f].v; src.innerHTML = V[f].src; src.style.display="block";
+      tag.style.display="block"; tag.textContent = (f==="id_expiry") ? "EXPIRED" : "STALE";
+    } else if(status==="conflict"){
+      amberN++;
+      val.style.display="none";
+      tag.style.display="block"; tag.textContent="CONFLICT";
+      c2.style.display="grid";
+      c2.innerHTML =
+        '<div class="side"><div class="k">A &middot; registration</div>'+
+          '<div class="v">Rue de la Loi 227, 1040 Bruxelles</div>'+
+          '<div class="fn">company_registration_BE0784512339.pdf</div></div>'+
+        '<div class="vs">&ne;</div>'+
+        '<div class="side"><div class="k">B &middot; utility bill</div>'+
+          '<div class="v">Wetstraat 271, 1040 Brussel</div>'+
+          '<div class="fn">utility_bill_sibelga_2026-05.jpg</div></div>';
+    } else {
+      val.innerHTML = "&mdash; UNRESOLVED";
+    }
+    if(FIELD_BLOCKING[f] && status!=="resolved") blocking++;
+
+    if(changed && prevI>=0){
+      el.classList.remove("flip"); void el.offsetWidth; el.classList.add("flip");
+    }
+    prevFieldStatus[f] = status;
+  });
+
+  $("tallyN").textContent = green;
+  $("tallyK").textContent = blocking;
+  $("tallyK").className = "blk tnum" + (blocking===0 ? " zero" : "");
+  $("tallySub").innerHTML = amberN
+    ? (amberN + ' field in conflict &middot; both values retained &middot; confidence ' + st.conf + '%')
+    : ('confidence ' + st.conf + '% &middot; weighted required-field coverage');
+  $("tallyBarG").style.width = (green/23*100).toFixed(1) + "%";
+  $("tallyBarA").style.width = (amberN/23*100).toFixed(1) + "%";
+  $("stamp").textContent = blocking===0 ? "READY TO LODGE" : "NOT SUBMITTABLE";
+  $("stamp").classList.toggle("ok", blocking===0);
+
+  /* risk bars */
+  var evTotal = 0;
+  COMPS.forEach(function(cm){
+    var bar = document.querySelector('.bar[data-c="'+cm.k+'"]');
+    var numEl = bar.querySelector("[data-num]"), fill = bar.querySelector("[data-fill]"),
+        ctEl = bar.querySelector("[data-ct]"), evEl = bar.querySelector("[data-ev]");
+    var v = (cm.k==="completeness") ? st.conf/100 : st.comps[cm.k];
+    var ev = EV[cm.k](i);
+    evTotal += ev.n;
+    evEl.innerHTML = ev.html;
+    ctEl.textContent = ev.n
+      ? ev.n + (cm.k==="completeness" ? " open fields" : (ev.n===1 ? " evidence item" : " evidence items"))
+      : "no evidence";
+
+    var col2;
+    if(v===null || v===undefined) col2 = "#3a4553";
+    else if(cm.k==="completeness") col2 = "#58a6ff";
+    else col2 = v>=0.7 ? "#ef5350" : (v>=0.35 ? "#e9a33a" : (v>0 ? "#3ecf8e" : "#2c3644"));
+    fill.style.background = col2;
+    fill.style.width = ((v===null||v===undefined) ? 0 : v*100) + "%";
+    numEl.style.color = (v===null||v===undefined) ? "#64707e" : col2;
+    if(v===null || v===undefined){
+      if(tweens.has(numEl)) cancelAnimationFrame(tweens.get(numEl));
+      numEl.innerHTML = "&mdash;";
+    } else {
+      tweenNum(numEl, prevVals.comps[cm.k]||0, v, 950, function(x){ return x.toFixed(2); });
+    }
+
+    bar.classList.toggle("fired", st.fired===cm.k);
+    if(st.fired===cm.k) bar.classList.add("open");
+    prevVals.comps[cm.k] = (v===null||v===undefined) ? 0 : v;
+  });
+  $("evCount").innerHTML = "evidence &middot; " + evTotal + " items";
+
+  /* pending verdict + re-score */
+  $("pending").classList.toggle("on", !!st.pending);
+  $("rescore").classList.toggle("ready", !!st.pending);
+
+  /* rationale */
+  if(i===5){
+    $("rationale").value =
+"Adopting M. Dubois' call on the analogous Kervyn structure. The LU intermediate has no substance, the CY parent shares a settlement account with two flagged Baltic entities, and the registered seat does not match the proof of address. HIGH — enhanced due diligence, no account opening until the UBO chain is evidenced by registry extract.";
+    $("footWho").innerHTML = 'last insert: <span style="color:#3ecf8e">M. Dubois &middot; 30s ago</span> &middot; auto-embedded (voyage-finance-2)';
+  } else {
+    $("rationale").value = "";
+    $("footWho").innerHTML = "accountant: you &middot; auto-embedded on rationale (voyage-finance-2)";
+  }
+
+  /* toasts */
+  if(!opts.silent && prevI>=0 && prevI!==i){
+    if(i===2) toast("integrity &middot; flagged",
+      'Expired identity document in <code>passport_specimen_scan.jpg</code> &mdash; follow-up case opened, RFI drafted.');
+    else if(i===3) toast("contradiction &middot; flagged",
+      'registered_address conflict across 2 documents &mdash; both values retained on the filing.');
+    else if(i===4) toast("$graphLookup &middot; path found",
+      'Client reaches a flagged shared-IBAN cluster at depth 2.<br><b style="color:#8fe0b8">A colleague just inserted a verdict &mdash; press Re-score.</b>', 5200);
+    else if(i===5) toast("verdicts &middot; insertOne",
+      '<code>{ decision_type: "kyc_risk", accountant: "M. Dubois", decision: "HIGH" }</code><br>Retrieved at relevance 0.941. Risk 0.38 &rarr; 0.71. No retraining, no restart.', 7000);
+  }
+
+  prevVals.conf = cTo;
+  prevVals.risk = (rTo===null) ? 0 : rTo;
+}
+
+/* ============================================================
+   CONTROLS
+   ============================================================ */
+function go(i){ if(i<0 || i>=S.length || i===cur) return; apply(i); }
+$("prev").onclick = function(){ go(cur-1); };
+$("next").onclick = function(){ go(cur+1); };
+Array.prototype.forEach.call(document.querySelectorAll(".pip"), function(p){
+  p.onclick = function(){ go(+p.dataset.i); };
+});
+
+$("rescore").onclick = function(){
+  var b = this;
+  b.classList.add("busy");
+  setTimeout(function(){
+    b.classList.remove("busy");
+    if(cur===4) go(5); else apply(cur, {silent:true});
+  }, 620);
+};
+
+$("resetBtn").onclick = function(){
+  prevVals.conf = 0; prevVals.risk = 0;
+  Object.keys(prevVals.comps).forEach(function(k){ prevVals.comps[k] = 0; });
+  Array.prototype.forEach.call(document.querySelectorAll(".bar"), function(b){ b.classList.remove("open"); });
+  cur = -1;
+  apply(0, {silent:true});
+  toast("reset", "Client file restored to pre-demo state.", 2200);
+};
+
+Array.prototype.forEach.call(document.querySelectorAll(".vbtn"), function(b){
+  b.onclick = function(){
+    Array.prototype.forEach.call(document.querySelectorAll(".vbtn"), function(x){ x.classList.remove("sel"); });
+    this.classList.add("sel");
+    var lvlTxt = this.querySelector(".l").textContent.replace(" RISK","");
+    toast("verdicts &middot; insertOne",
+      "Verdict staged &mdash; <code>decision: &quot;" + lvlTxt +
+      "&quot;</code>. Press Re-score to fold it back into memory.", 3000);
+  };
+});
+
+document.addEventListener("keydown", function(e){
+  if(e.target.tagName==="TEXTAREA" || e.target.tagName==="INPUT") return;
+  if(e.key==="ArrowRight" || e.key===" "){ e.preventDefault(); go(cur+1); }
+  else if(e.key==="ArrowLeft"){ go(cur-1); }
+  else if(/^[0-5]$/.test(e.key)){ go(+e.key); }
+  else if(e.key==="r" || e.key==="R"){ $("rescore").click(); }
+});
+
+/* running clock */
+(function(){
+  var base = new Date(2026,7,13,14,38,2);
+  setInterval(function(){
+    base.setSeconds(base.getSeconds()+1);
+    function p(n){ return String(n).length<2 ? "0"+n : ""+n; }
+    $("clock").innerHTML = "13 AUG 2026 &middot; " + p(base.getHours()) + ":" +
+      p(base.getMinutes()) + ":" + p(base.getSeconds()) + " CEST";
+  }, 1000);
+})();
+
+apply(0, {silent:true});
+</script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+{
+  "_readme": [
+    "TEAMMATE: this is a WORKING placeholder, not a finished fixture set. The app runs on it today.",
+    "Priority order if you only have time for one thing: verify verdict VD_ANALOGOUS still retrieves",
+    "first for the persona's document summary (run `npm run check`). That single verdict is ~80% of",
+    "the data value in a 60-second demo. Everything else is plausible noise around it.",
+    "Second priority: pad `verdicts` toward ~35 entries. Keep decision_type 'kyc_risk'. Vary the",
+    "accountants and dates. Do NOT add more verdicts about address mismatches on logistics companies",
+    "— that dilutes the analogous one and it will stop ranking first."
+  ],
+
+  "persona": {
+    "_id": "CLIENT_VERHOEVEN",
+    "name": "Verhoeven Logistics BV",
+    "country": "BE",
+    "status": "ONBOARDING",
+    "entity": {
+      "name": "Verhoeven Logistics BV",
+      "company_number": "0721.489.336",
+      "address": "Wetstraat 12, 1040 Brussel",
+      "iban": ["BE68539007547034"],
+      "officers": ["Joris Vandamme"]
+    },
+    "required_fields": [
+      "legal_name",
+      "trading_name",
+      "company_number",
+      "vat_number",
+      "legal_form",
+      "incorporation_date",
+      "registered_address",
+      "operating_address",
+      "country",
+      "sector_code",
+      "expected_turnover",
+      "source_of_funds",
+      "id_document",
+      "id_expiry",
+      "proof_of_address",
+      "financial_statements",
+      "financial_year",
+      "ubo_declaration",
+      "ubo_names",
+      "ownership_structure",
+      "bank_account_iban",
+      "tax_residency",
+      "politically_exposed"
+    ],
+    "resolved_fields": {
+      "country": "BE"
+    }
+  },
+
+  "staged_documents": [
+    {
+      "_id": "DOC_REGISTRATION",
+      "type": "COMPANY_REGISTRATION",
+      "filename": "kbo_registration_0721489336.pdf",
+      "issued_date": "2019-04-08",
+      "expiry_date": null,
+      "jurisdiction": "BE",
+      "page_text": "Kruispuntbank van Ondernemingen. Uittreksel. Verhoeven Logistics BV, ondernemingsnummer 0721.489.336, BTW BE 0721.489.336. Rechtsvorm: besloten vennootschap. Datum oprichting 8 april 2019. Maatschappelijke zetel: Wetstraat 12, 1040 Brussel. Activiteit: goederenvervoer over de weg.",
+      "extracted": {
+        "legal_name": "Verhoeven Logistics BV",
+        "company_number": "0721.489.336",
+        "vat_number": "BE 0721.489.336",
+        "legal_form": "BV",
+        "incorporation_date": "2019-04-08",
+        "registered_address": "Wetstraat 12, 1040 Brussel",
+        "country": "BE"
+      },
+      "defect": null,
+      "beat": 1
+    },
+    {
+      "_id": "DOC_PASSPORT",
+      "type": "PASSPORT",
+      "filename": "vandamme_passport_specimen.jpg",
+      "issued_date": "2014-08-03",
+      "expiry_date": "2024-08-02",
+      "jurisdiction": "BE",
+      "page_text": "KONINKRIJK BELGIE ROYAUME DE BELGIQUE PASPOORT PASSEPORT SPECIMEN. Naam VANDAMME Voornaam Joris. Nationaliteit Belgische. Geldig tot 02 AUG 2024.",
+      "extracted": {
+        "id_document": "Passport EL8842197 (SPECIMEN)",
+        "id_expiry": "2024-08-02",
+        "person_name": "Joris Vandamme"
+      },
+      "defect": "expired",
+      "beat": 2
+    },
+    {
+      "_id": "DOC_UTILITY",
+      "type": "UTILITY_BILL",
+      "filename": "engie_facture_2026_06.pdf",
+      "issued_date": "2026-06-30",
+      "expiry_date": null,
+      "jurisdiction": "BE",
+      "page_text": "ENGIE Electrabel. Facture d'electricite. Client: Verhoeven Logistics BV. Adresse de fourniture: Rue de la Loi 120, 1040 Bruxelles. Periode du 01/06/2026 au 30/06/2026.",
+      "extracted": {
+        "proof_of_address": "engie_facture_2026_06.pdf",
+        "operating_address": "Rue de la Loi 120, 1040 Bruxelles",
+        "legal_name": "Verhoeven Logistics BV"
+      },
+      "defect": "address_conflict",
+      "beat": 3
+    },
+    {
+      "_id": "DOC_INCOME",
+      "type": "FINANCIAL_STATEMENTS",
+      "filename": "jaarrekening_2022.pdf",
+      "issued_date": "2023-03-31",
+      "expiry_date": null,
+      "jurisdiction": "BE",
+      "page_text": "Jaarrekening boekjaar 2022. Verhoeven Logistics BV. Omzet 1.240.000 EUR. Bedrijfsresultaat 96.400 EUR. Neergelegd bij de Nationale Bank van Belgie op 31 maart 2023.",
+      "extracted": {
+        "financial_statements": "jaarrekening_2022.pdf",
+        "financial_year": "2022",
+        "expected_turnover": "1240000"
+      },
+      "defect": "stale",
+      "beat": 4
+    },
+    {
+      "_id": "DOC_OWNERSHIP",
+      "type": "OWNERSHIP_CHART",
+      "filename": "ubo_structuur.pdf",
+      "issued_date": "2026-01-15",
+      "expiry_date": null,
+      "jurisdiction": "BE",
+      "page_text": "UBO structuur Verhoeven Logistics BV. Deelneming 40 procent in Meridiaan Freight BVBA. Uiteindelijke begunstigde: Joris Vandamme, 100 procent van Verhoeven Logistics BV.",
+      "extracted": {
+        "ubo_declaration": "ubo_structuur.pdf",
+        "ubo_names": "Joris Vandamme",
+        "ownership_structure": "Verhoeven Logistics BV -> Meridiaan Freight BVBA (40%)"
+      },
+      "defect": "graph_link",
+      "beat": 5
+    }
+  ],
+
+  "entities": [
+    {
+      "_id": "ENT_VERHOEVEN",
+      "name": "Verhoeven Logistics BV",
+      "country": "BE",
+      "iban": ["BE68539007547034"],
+      "address": "Wetstraat 12, 1040 Brussel",
+      "officers": ["Joris Vandamme"],
+      "risk_flags": []
+    },
+    {
+      "_id": "ENT_MERIDIAAN",
+      "name": "Meridiaan Freight BVBA",
+      "country": "BE",
+      "iban": ["BE71096123456769"],
+      "address": "Havenlaan 86C, 1000 Brussel",
+      "officers": ["P. Coussement"],
+      "risk_flags": []
+    },
+    {
+      "_id": "ENT_CASTELEIN",
+      "name": "Castelein Transport NV",
+      "country": "BE",
+      "iban": ["BE71096123456769"],
+      "address": "Havenlaan 86C, 1000 Brussel",
+      "officers": ["P. Coussement", "L. Adriaenssens"],
+      "risk_flags": ["DECLINED_2025"]
+    },
+    {
+      "_id": "ENT_ZENITH",
+      "name": "Zenith Cargo Services BV",
+      "country": "NL",
+      "iban": ["BE71096123456769"],
+      "address": "Havenlaan 86C, 1000 Brussel",
+      "officers": ["L. Adriaenssens"],
+      "risk_flags": ["SHARED_IBAN"]
+    },
+    {
+      "_id": "ENT_DELHAYE",
+      "name": "Delhaye Warehousing SPRL",
+      "country": "BE",
+      "iban": ["BE45001234567890"],
+      "address": "Chaussee de Mons 214, 1070 Anderlecht",
+      "officers": ["M. Delhaye"],
+      "risk_flags": []
+    },
+    {
+      "_id": "ENT_NOORDZEE",
+      "name": "Noordzee Expeditie NV",
+      "country": "BE",
+      "iban": ["BE22751234567812"],
+      "address": "Scheepsdalelaan 9, 8000 Brugge",
+      "officers": ["K. Maertens"],
+      "risk_flags": []
+    }
+  ],
+
+  "ownership": [
+    { "from": "ENT_VERHOEVEN", "to": "ENT_MERIDIAAN", "pct": 40 },
+    { "from": "ENT_MERIDIAAN", "to": "ENT_CASTELEIN", "pct": 55 },
+    { "from": "ENT_CASTELEIN", "to": "ENT_ZENITH", "pct": 30 },
+    { "from": "ENT_DELHAYE", "to": "ENT_NOORDZEE", "pct": 15 }
+  ],
+
+  "verdicts": [
+    {
+      "_id": "VD_ANALOGOUS",
+      "decision_type": "kyc_risk",
+      "question": "Should we onboard a Brussels road-freight company whose utility bill shows a different street number from the registered seat, with an expired director passport and a 40% holding in a group we have previously declined?",
+      "decision": "HIGH",
+      "rationale": "Declined. The address discrepancy was not a translation artefact — Wetstraat and Rue de la Loi are the same street, but numbers 12 and 120 are half a kilometre apart, and 120 is a serviced mailbox address we have seen used by three other freight companies. Combined with a director ID that lapsed two years before application and a 40% participation reaching a group we declined in 2025 over a shared account, this is a corporate-shell pattern rather than an administrative error. A single stale document is housekeeping. Three that all point the same direction is a structure.",
+      "accountant": "M. Dubois",
+      "date": "2026-02-11"
+    },
+    {
+      "_id": "VD_0002",
+      "decision_type": "kyc_risk",
+      "question": "Client presented an ID card that expired four months ago but is otherwise consistent with the file. Onboard?",
+      "decision": "LOW",
+      "rationale": "Proceeded on receipt of the renewed card. An expired identity document is an evidence gap, not a risk signal — nothing in the file contradicted the identity itself. We should stop conflating unverified with suspicious; it produces false positives that cost us good clients and desensitise the team to real ones.",
+      "accountant": "M. Dubois",
+      "date": "2025-11-04"
+    },
+    {
+      "_id": "VD_0003",
+      "decision_type": "kyc_risk",
+      "question": "Two group companies file from the same accountant's office address. Is the shared address alone a flag?",
+      "decision": "LOW",
+      "rationale": "No. A shared registered office at a professional services firm is the norm for small Belgian holdings and carries no inference on its own. What would change the assessment is a shared operating account, not a shared letterbox.",
+      "accountant": "S. Peeters",
+      "date": "2025-09-22"
+    },
+    {
+      "_id": "VD_0004",
+      "decision_type": "kyc_risk",
+      "question": "Applicant company shares a bank account with two unrelated entities under different directors.",
+      "decision": "HIGH",
+      "rationale": "Escalated and declined. A shared IBAN across entities with no disclosed common ownership is the single strongest indicator in our file history. In every prior instance the arrangement existed to move receipts between books ahead of a VAT filing. We do not need to prove intent to decline.",
+      "accountant": "M. Dubois",
+      "date": "2025-06-17"
+    },
+    {
+      "_id": "VD_0005",
+      "decision_type": "kyc_risk",
+      "question": "Financial statements supplied are three years old. Sufficient for onboarding a dormant holding company?",
+      "decision": "MEDIUM",
+      "rationale": "Accepted with conditions. For a genuinely dormant holding the age of the accounts is less informative than for a trading company. Requested the most recent management figures and a director's statement of dormancy before completing the file.",
+      "accountant": "A. Lemmens",
+      "date": "2025-08-30"
+    },
+    {
+      "_id": "VD_0006",
+      "decision_type": "kyc_risk",
+      "question": "Road haulage company incorporated 11 months ago requests onboarding with turnover projections ten times sector median.",
+      "decision": "MEDIUM",
+      "rationale": "Requested source-of-funds evidence and the haulage licence before proceeding. Rapid growth in freight is common after a fleet acquisition and is not itself adverse. The projection was unsupported by any asset on the balance sheet, which is what warranted the question.",
+      "accountant": "S. Peeters",
+      "date": "2026-01-19"
+    },
+    {
+      "_id": "VD_0007",
+      "decision_type": "kyc_risk",
+      "question": "UBO declaration names one beneficial owner; the ownership chart shows a Luxembourg intermediary holding 45%.",
+      "decision": "HIGH",
+      "rationale": "The declaration was incomplete rather than false, but an undisclosed intermediate holder in a second jurisdiction defeats the purpose of the declaration entirely. Where the chart and the declaration disagree, we work from the chart and treat the declaration as unreliable for the whole file.",
+      "accountant": "M. Dubois",
+      "date": "2025-12-08"
+    },
+    {
+      "_id": "VD_0008",
+      "decision_type": "kyc_risk",
+      "question": "Utility bill is in the director's personal name rather than the company's. Acceptable proof of operating address?",
+      "decision": "LOW",
+      "rationale": "Accepted for a single-director company operating from a converted residential property. Cross-checked against the lease and the vehicle registration, both of which gave the same address. Corroboration across independent documents matters more than whose name is on any one of them.",
+      "accountant": "A. Lemmens",
+      "date": "2025-10-14"
+    },
+    {
+      "_id": "VD_0009",
+      "decision_type": "kyc_risk",
+      "question": "Applicant's registered address is a virtual office provider used by 40+ companies.",
+      "decision": "MEDIUM",
+      "rationale": "Not adverse in isolation — virtual offices are a legitimate cost decision for micro-enterprises. Escalated only because the applicant also declined to provide an operating address when asked directly. The refusal was the signal, not the address.",
+      "accountant": "S. Peeters",
+      "date": "2026-03-02"
+    },
+    {
+      "_id": "VD_0010",
+      "decision_type": "kyc_risk",
+      "question": "Director appears as an officer of a company this firm declined two years ago.",
+      "decision": "MEDIUM",
+      "rationale": "A prior decline attaches to the file, not permanently to the person. Reviewed the original decline: it turned on the counterparty's accounts, not on this director's conduct. Onboarded with annual review rather than the standard three-year cycle.",
+      "accountant": "M. Dubois",
+      "date": "2025-07-09"
+    },
+    {
+      "_id": "VD_0011",
+      "decision_type": "kyc_risk",
+      "question": "Company number on the VAT certificate differs by one digit from the registration extract.",
+      "decision": "LOW",
+      "rationale": "Transcription error at the VAT office, confirmed by telephone with the client and against the KBO record. Genuine document conflicts almost never take the form of a single transposed digit; they show up as different names, different addresses, or different dates.",
+      "accountant": "A. Lemmens",
+      "date": "2025-05-21"
+    },
+    {
+      "_id": "VD_0012",
+      "decision_type": "kyc_risk",
+      "question": "Freight forwarder with a Dutch parent and Belgian operating company, no adverse media, complete file.",
+      "decision": "LOW",
+      "rationale": "Straightforward cross-border structure with a commercial rationale that matches the trade lanes actually invoiced. Documented as standard due diligence.",
+      "accountant": "K. Janssens",
+      "date": "2026-04-16"
+    },
+    {
+      "_id": "VD_0013",
+      "decision_type": "kyc_risk",
+      "question": "Applicant supplied a passport marked SPECIMEN.",
+      "decision": "MEDIUM",
+      "rationale": "Returned to the client as unusable. A specimen page carries no evidential value whatsoever, and accepting one would have left the identity leg of the file entirely unsupported. Not treated as adverse — in this instance it was an honest error by the client's assistant.",
+      "accountant": "K. Janssens",
+      "date": "2026-05-27"
+    },
+    {
+      "_id": "VD_0014",
+      "decision_type": "kyc_risk",
+      "question": "Warehousing company's declared sector does not match the activity code on the registration extract.",
+      "decision": "MEDIUM",
+      "rationale": "Activity codes drift as businesses evolve and are updated late or never. Asked the client to describe the current operation in writing and compared it against twelve months of sales invoices, which supported the description given.",
+      "accountant": "A. Lemmens",
+      "date": "2025-11-25"
+    },
+    {
+      "_id": "VD_0015",
+      "decision_type": "kyc_risk",
+      "question": "Two applicants in the same month share a director and an accountant but nothing else.",
+      "decision": "LOW",
+      "rationale": "Coincidence of professional networks in a small market. Neither file showed a shared account, a shared address, or offsetting transactions. We should be careful that graph proximity alone does not become a substitute for evidence.",
+      "accountant": "K. Janssens",
+      "date": "2026-06-11"
+    },
+    {
+      "_id": "VD_0016",
+      "decision_type": "kyc_risk",
+      "question": "Client's proof of address is a mobile phone bill dated fourteen months ago.",
+      "decision": "MEDIUM",
+      "rationale": "Requested a current utility or bank statement. Our threshold is three months for address evidence, and there was no reason to depart from it. Confidence in the file, not the client's risk, was what this affected.",
+      "accountant": "S. Peeters",
+      "date": "2026-02-28"
+    },
+    {
+      "_id": "VD_0017",
+      "decision_type": "kyc_risk",
+      "question": "Applicant holds 40% of a company whose own UBO structure we could not fully resolve.",
+      "decision": "MEDIUM",
+      "rationale": "An unresolved structure one hop away is a live question, not a decline. Set the file to annual review and recorded the specific unresolved leg so the next reviewer does not repeat the work from scratch.",
+      "accountant": "M. Dubois",
+      "date": "2026-04-02"
+    },
+    {
+      "_id": "VD_0018",
+      "decision_type": "vat_treatment",
+      "question": "Is intra-community supply zero-rating available where the customer's VAT number validated at order date but not at invoice date?",
+      "decision": "MEDIUM",
+      "rationale": "Included here deliberately to prove the point: this is not a KYC question at all, and it sits in the same collection, retrieved by the same pipeline. The memory is a judgment store, not a KYC table.",
+      "accountant": "K. Janssens",
+      "date": "2026-05-05"
+    }
+  ]
+}

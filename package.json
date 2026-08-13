@@ -1,0 +1,17 @@
+{
+  "name": "ledger-memory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Judgment memory for an accounting practice — onboarding that re-prices itself when a human writes a verdict.",
+  "scripts": {
+    "dev": "node src/server.js",
+    "seed": "node scripts/seed.js",
+    "reset": "node scripts/reset.js",
+    "check": "node scripts/check.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mongodb": "^6.9.0"
+  }
+}
