@@ -1539,5 +1539,60 @@ body.focus .just-written,body.focus .isnew,body.focus [data-new="1"]{
 })();
 </script>
 
+
+<script>
+/* On-screen tech ticker. Names the MongoDB feature responsible for what just
+   happened, so Technologies Used is visible during the demo rather than claimed
+   at the end. The retrieval rung is read from the live score payload, so it tells
+   the truth: if Atlas is rate-limited it says TF-IDF, not $rankFusion. */
+(function(){
+  var CID='CLIENT_VERHOEVEN';
+  var box=document.createElement('div');
+  box.id='techticker';
+  box.style.cssText='position:fixed;left:10px;bottom:10px;z-index:9998;max-width:640px;'+
+    'background:#0d1218;border:1px solid #2a3542;border-left:3px solid #4f8ef7;border-radius:4px;'+
+    'padding:9px 13px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#cfe0f2;'+
+    'box-shadow:0 6px 24px rgba(0,0,0,.45)';
+  box.innerHTML='<span style="color:#6f8296;letter-spacing:.10em;font-size:10px">MONGODB</span>'+
+    '<div id="techtxt" style="margin-top:3px">document model — collections seeded</div>';
+  document.body.appendChild(box);
+  var txt=document.getElementById('techtxt');
+
+  var STEP=[
+    'document model — one collection per artifact, client record + resolved fields',
+    'document model — KBO extract merged into clients.resolved_fields',
+    'aggregation pipeline — integrity: expiry, staleness, SPECIMEN watermark',
+    'aggregation pipeline — cross-document contradiction across extracted fields',
+    'aggregation pipeline — contradiction + integrity over 4 documents',
+    '$graphLookup — ownership traversal, maxDepth 3, shared-IBAN cluster'
+  ];
+  var last='';
+  function paint(t){ if(t!==last){ last=t; txt.textContent=t;
+    box.style.borderLeftColor='#6fe3a8'; setTimeout(function(){box.style.borderLeftColor='#4f8ef7';},700); } }
+
+  setInterval(function(){
+    fetch('/api/state/'+CID).then(function(r){return r.json();}).then(function(j){
+      var n=(j.documents||[]).length;
+      var pr=(j.score&&j.score.breakdown&&j.score.breakdown.precedent)||{};
+      var ev=pr.evidence||[];
+      var fresh=ev.some(function(e){return e.just_written;});
+      if(fresh){
+        var rung=pr.retrieved_by||'retrieval';
+        var nice=/rankFusion \+ \$rerank/.test(rung)
+              ? 'Automated Embedding (voyage-4) → $vectorSearch + Atlas Search → $rankFusion → $rerank'
+              : /rankFusion/.test(rung)
+              ? 'Automated Embedding (voyage-4) → $vectorSearch + Atlas Search → $rankFusion'
+              : /vectorSearch/.test(rung)
+              ? 'Automated Embedding (voyage-4) → $vectorSearch'
+              : 'in-process TF-IDF — Atlas unavailable, no MongoDB in this path';
+        paint(nice);
+      } else {
+        paint(STEP[Math.min(n,STEP.length-1)]);
+      }
+    }).catch(function(){});
+  }, 1200);
+})();
+</script>
+
 </body>
 </html>
