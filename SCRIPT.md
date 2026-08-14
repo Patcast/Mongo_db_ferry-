@@ -2,6 +2,8 @@
 
 Reset first. Zoom 110%. Full layout (`0`).
 
+Click the document buttons **top to bottom, first five, no skipping.**
+
 ---
 
 **DO:** nothing. Empty file on screen.
@@ -10,21 +12,21 @@ Reset first. Zoom 110%. Full layout (`0`).
 
 ---
 
-**DO:** click `kbo_uittreksel...pdf`, then `vandamme_eid_specimen.jpg`. Pause.
+**DO:** click the **1st** button, then the **2nd**. Pause.
 
 > "The company registration lands and the filing form fills itself in. Then the director's eID — **expired, twenty twenty-four**, watermarked SPECIMEN. The agent doesn't just flag it. It opens a case and drafts the client email, naming that document and that date."
 
 ---
 
-**DO:** click `engie_facture_2026_06.pdf`, then `ubo_register_uittreksel_2026.pdf`. **Skip the annual accounts.**
+**DO:** click the **3rd**, **4th**, then **5th** buttons.
 
-> "The utility bill disagrees with the registered seat — same street, different number, one in Dutch and one in French. That's the check a junior does by eye across twelve PDFs. Then the UBO extract, and **`$graphLookup`** walks the ownership two hops into a cluster sharing one bank account. Risk: **0.49, medium.**"
+> "The utility bill disagrees with the registered seat — same street, different number, one in Dutch and one in French. That's the check a junior does by eye across twelve PDFs. Then the UBO extract, and **`$graphLookup`** walks the ownership two hops into a cluster sharing one bank account. Risk: **0.56, medium.**"
 
 ---
 
 **DO:** press `3`. Click **Colleague writes verdict** → **HIGH RISK** → **Re-score**. Wait for the dial.
 
-> "Now a colleague writes one verdict about a past case — one line of reasoning, into one collection. Re-score. **0.72 — high.** Atlas embedded his reasoning itself and **`$rankFusion`** found it. The breakdown names him, quotes him, dates it seconds ago. No retraining. No restart. One insert into one collection."
+> "Now a colleague writes one verdict about a past case — one line of reasoning, into one collection. Re-score. **0.76 — high.** Atlas embedded his reasoning itself and **`$rankFusion`** found it. The breakdown names him, quotes him, dates it seconds ago. No retraining. No restart. One insert into one collection."
 
 ---
 
